@@ -6,3 +6,12 @@ playwright-report/
 .DS_Store
 .env*
 artifacts/*.zip
+
+.dev.vars*
+.wrangler/
+*.pem
+
+.impeccable/review/
+artifacts/cloudflare-*.png
+artifacts/namecheap-*.png
+artifacts/github-app-*.png

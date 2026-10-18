@@ -1,0 +1,474 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-18T18:18:43.129379+00:00",
+  "title": "Design System: reacji.to",
+  "extensions": {
+    "colorMeta": {
+      "brand-lime": {
+        "role": "primary",
+        "displayName": "Brand Lime",
+        "tonalRamp": [
+          "oklch(15.00% 0.16355 119.83)",
+          "oklch(26.43% 0.16355 119.83)",
+          "oklch(37.86% 0.16355 119.83)",
+          "oklch(49.29% 0.16355 119.83)",
+          "oklch(60.71% 0.16355 119.83)",
+          "oklch(72.14% 0.16355 119.83)",
+          "oklch(83.57% 0.16355 119.83)",
+          "oklch(95.00% 0.16355 119.83)"
+        ]
+      },
+      "brand-lime-hover": {
+        "role": "primary",
+        "displayName": "Brand Lime Hover",
+        "tonalRamp": [
+          "oklch(15.00% 0.16602 120.29)",
+          "oklch(26.43% 0.16602 120.29)",
+          "oklch(37.86% 0.16602 120.29)",
+          "oklch(49.29% 0.16602 120.29)",
+          "oklch(60.71% 0.16602 120.29)",
+          "oklch(72.14% 0.16602 120.29)",
+          "oklch(83.57% 0.16602 120.29)",
+          "oklch(95.00% 0.16602 120.29)"
+        ]
+      },
+      "brand-ink": {
+        "role": "primary",
+        "displayName": "Brand Ink",
+        "tonalRamp": [
+          "oklch(15.00% 0.03972 133.88)",
+          "oklch(26.43% 0.03972 133.88)",
+          "oklch(37.86% 0.03972 133.88)",
+          "oklch(49.29% 0.03972 133.88)",
+          "oklch(60.71% 0.03972 133.88)",
+          "oklch(72.14% 0.03972 133.88)",
+          "oklch(83.57% 0.03972 133.88)",
+          "oklch(95.00% 0.03972 133.88)"
+        ]
+      },
+      "site-accent": {
+        "role": "primary",
+        "displayName": "Site Accent",
+        "tonalRamp": [
+          "oklch(15.00% 0.11420 134.49)",
+          "oklch(26.43% 0.11420 134.49)",
+          "oklch(37.86% 0.11420 134.49)",
+          "oklch(49.29% 0.11420 134.49)",
+          "oklch(60.71% 0.11420 134.49)",
+          "oklch(72.14% 0.11420 134.49)",
+          "oklch(83.57% 0.11420 134.49)",
+          "oklch(95.00% 0.11420 134.49)"
+        ]
+      },
+      "page": {
+        "role": "neutral",
+        "displayName": "Page",
+        "tonalRamp": [
+          "oklch(15.00% 0.00171 247.84)",
+          "oklch(26.43% 0.00171 247.84)",
+          "oklch(37.86% 0.00171 247.84)",
+          "oklch(49.29% 0.00171 247.84)",
+          "oklch(60.71% 0.00171 247.84)",
+          "oklch(72.14% 0.00171 247.84)",
+          "oklch(83.57% 0.00171 247.84)",
+          "oklch(95.00% 0.00171 247.84)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "tonalRamp": [
+          "oklch(15.00% 0.00000 89.88)",
+          "oklch(26.43% 0.00000 89.88)",
+          "oklch(37.86% 0.00000 89.88)",
+          "oklch(49.29% 0.00000 89.88)",
+          "oklch(60.71% 0.00000 89.88)",
+          "oklch(72.14% 0.00000 89.88)",
+          "oklch(83.57% 0.00000 89.88)",
+          "oklch(95.00% 0.00000 89.88)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "tonalRamp": [
+          "oklch(15.00% 0.00686 258.37)",
+          "oklch(26.43% 0.00686 258.37)",
+          "oklch(37.86% 0.00686 258.37)",
+          "oklch(49.29% 0.00686 258.37)",
+          "oklch(60.71% 0.00686 258.37)",
+          "oklch(72.14% 0.00686 258.37)",
+          "oklch(83.57% 0.00686 258.37)",
+          "oklch(95.00% 0.00686 258.37)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "tonalRamp": [
+          "oklch(15.00% 0.01766 260.71)",
+          "oklch(26.43% 0.01766 260.71)",
+          "oklch(37.86% 0.01766 260.71)",
+          "oklch(49.29% 0.01766 260.71)",
+          "oklch(60.71% 0.01766 260.71)",
+          "oklch(72.14% 0.01766 260.71)",
+          "oklch(83.57% 0.01766 260.71)",
+          "oklch(95.00% 0.01766 260.71)"
+        ]
+      },
+      "site-muted": {
+        "role": "neutral",
+        "displayName": "Site Muted",
+        "tonalRamp": [
+          "oklch(15.00% 0.01910 254.02)",
+          "oklch(26.43% 0.01910 254.02)",
+          "oklch(37.86% 0.01910 254.02)",
+          "oklch(49.29% 0.01910 254.02)",
+          "oklch(60.71% 0.01910 254.02)",
+          "oklch(72.14% 0.01910 254.02)",
+          "oklch(83.57% 0.01910 254.02)",
+          "oklch(95.00% 0.01910 254.02)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line",
+        "tonalRamp": [
+          "oklch(15.00% 0.00932 258.34)",
+          "oklch(26.43% 0.00932 258.34)",
+          "oklch(37.86% 0.00932 258.34)",
+          "oklch(49.29% 0.00932 258.34)",
+          "oklch(60.71% 0.00932 258.34)",
+          "oklch(72.14% 0.00932 258.34)",
+          "oklch(83.57% 0.00932 258.34)",
+          "oklch(95.00% 0.00932 258.34)"
+        ]
+      },
+      "wash": {
+        "role": "neutral",
+        "displayName": "Wash",
+        "tonalRamp": [
+          "oklch(15.00% 0.00344 247.86)",
+          "oklch(26.43% 0.00344 247.86)",
+          "oklch(37.86% 0.00344 247.86)",
+          "oklch(49.29% 0.00344 247.86)",
+          "oklch(60.71% 0.00344 247.86)",
+          "oklch(72.14% 0.00344 247.86)",
+          "oklch(83.57% 0.00344 247.86)",
+          "oklch(95.00% 0.00344 247.86)"
+        ]
+      },
+      "settings-action": {
+        "role": "secondary",
+        "displayName": "Settings Action",
+        "tonalRamp": [
+          "oklch(15.00% 0.18002 264.04)",
+          "oklch(26.43% 0.18002 264.04)",
+          "oklch(37.86% 0.18002 264.04)",
+          "oklch(49.29% 0.18002 264.04)",
+          "oklch(60.71% 0.18002 264.04)",
+          "oklch(72.14% 0.18002 264.04)",
+          "oklch(83.57% 0.18002 264.04)",
+          "oklch(95.00% 0.18002 264.04)"
+        ]
+      },
+      "picker-action": {
+        "role": "secondary",
+        "displayName": "Picker Action",
+        "tonalRamp": [
+          "oklch(15.00% 0.18144 263.23)",
+          "oklch(26.43% 0.18144 263.23)",
+          "oklch(37.86% 0.18144 263.23)",
+          "oklch(49.29% 0.18144 263.23)",
+          "oklch(60.71% 0.18144 263.23)",
+          "oklch(72.14% 0.18144 263.23)",
+          "oklch(83.57% 0.18144 263.23)",
+          "oklch(95.00% 0.18144 263.23)"
+        ]
+      },
+      "picker-line": {
+        "role": "neutral",
+        "displayName": "Picker Line",
+        "tonalRamp": [
+          "oklch(15.00% 0.00632 255.48)",
+          "oklch(26.43% 0.00632 255.48)",
+          "oklch(37.86% 0.00632 255.48)",
+          "oklch(49.29% 0.00632 255.48)",
+          "oklch(60.71% 0.00632 255.48)",
+          "oklch(72.14% 0.00632 255.48)",
+          "oklch(83.57% 0.00632 255.48)",
+          "oklch(95.00% 0.00632 255.48)"
+        ]
+      },
+      "dark-page": {
+        "role": "neutral",
+        "displayName": "Dark Page",
+        "tonalRamp": [
+          "oklch(15.00% 0.00203 286.19)",
+          "oklch(26.43% 0.00203 286.19)",
+          "oklch(37.86% 0.00203 286.19)",
+          "oklch(49.29% 0.00203 286.19)",
+          "oklch(60.71% 0.00203 286.19)",
+          "oklch(72.14% 0.00203 286.19)",
+          "oklch(83.57% 0.00203 286.19)",
+          "oklch(95.00% 0.00203 286.19)"
+        ]
+      },
+      "dark-surface": {
+        "role": "neutral",
+        "displayName": "Dark Surface",
+        "tonalRamp": [
+          "oklch(15.00% 0.00390 286.06)",
+          "oklch(26.43% 0.00390 286.06)",
+          "oklch(37.86% 0.00390 286.06)",
+          "oklch(49.29% 0.00390 286.06)",
+          "oklch(60.71% 0.00390 286.06)",
+          "oklch(72.14% 0.00390 286.06)",
+          "oklch(83.57% 0.00390 286.06)",
+          "oklch(95.00% 0.00390 286.06)"
+        ]
+      },
+      "dark-ink": {
+        "role": "neutral",
+        "displayName": "Dark Ink",
+        "tonalRamp": [
+          "oklch(15.00% 0.00000 89.88)",
+          "oklch(26.43% 0.00000 89.88)",
+          "oklch(37.86% 0.00000 89.88)",
+          "oklch(49.29% 0.00000 89.88)",
+          "oklch(60.71% 0.00000 89.88)",
+          "oklch(72.14% 0.00000 89.88)",
+          "oklch(83.57% 0.00000 89.88)",
+          "oklch(95.00% 0.00000 89.88)"
+        ]
+      },
+      "dark-muted": {
+        "role": "neutral",
+        "displayName": "Dark Muted",
+        "tonalRamp": [
+          "oklch(15.00% 0.00718 286.22)",
+          "oklch(26.43% 0.00718 286.22)",
+          "oklch(37.86% 0.00718 286.22)",
+          "oklch(49.29% 0.00718 286.22)",
+          "oklch(60.71% 0.00718 286.22)",
+          "oklch(72.14% 0.00718 286.22)",
+          "oklch(83.57% 0.00718 286.22)",
+          "oklch(95.00% 0.00718 286.22)"
+        ]
+      },
+      "dark-line": {
+        "role": "neutral",
+        "displayName": "Dark Line",
+        "tonalRamp": [
+          "oklch(15.00% 0.00862 285.94)",
+          "oklch(26.43% 0.00862 285.94)",
+          "oklch(37.86% 0.00862 285.94)",
+          "oklch(49.29% 0.00862 285.94)",
+          "oklch(60.71% 0.00862 285.94)",
+          "oklch(72.14% 0.00862 285.94)",
+          "oklch(83.57% 0.00862 285.94)",
+          "oklch(95.00% 0.00862 285.94)"
+        ]
+      },
+      "dark-action": {
+        "role": "secondary",
+        "displayName": "Dark Action",
+        "tonalRamp": [
+          "oklch(15.00% 0.10443 264.18)",
+          "oklch(26.43% 0.10443 264.18)",
+          "oklch(37.86% 0.10443 264.18)",
+          "oklch(49.29% 0.10443 264.18)",
+          "oklch(60.71% 0.10443 264.18)",
+          "oklch(72.14% 0.10443 264.18)",
+          "oklch(83.57% 0.10443 264.18)",
+          "oklch(95.00% 0.10443 264.18)"
+        ]
+      },
+      "dark-settings-wash": {
+        "role": "neutral",
+        "displayName": "Dark Settings Wash",
+        "tonalRamp": [
+          "oklch(15.00% 0.00557 286.00)",
+          "oklch(26.43% 0.00557 286.00)",
+          "oklch(37.86% 0.00557 286.00)",
+          "oklch(49.29% 0.00557 286.00)",
+          "oklch(60.71% 0.00557 286.00)",
+          "oklch(72.14% 0.00557 286.00)",
+          "oklch(83.57% 0.00557 286.00)",
+          "oklch(95.00% 0.00557 286.00)"
+        ]
+      },
+      "dark-picker-surface": {
+        "role": "neutral",
+        "displayName": "Dark Picker Surface",
+        "tonalRamp": [
+          "oklch(15.00% 0.00566 285.97)",
+          "oklch(26.43% 0.00566 285.97)",
+          "oklch(37.86% 0.00566 285.97)",
+          "oklch(49.29% 0.00566 285.97)",
+          "oklch(60.71% 0.00566 285.97)",
+          "oklch(72.14% 0.00566 285.97)",
+          "oklch(83.57% 0.00566 285.97)",
+          "oklch(95.00% 0.00566 285.97)"
+        ]
+      },
+      "dark-picker-wash": {
+        "role": "neutral",
+        "displayName": "Dark Picker Wash",
+        "tonalRamp": [
+          "oklch(15.00% 0.00718 285.95)",
+          "oklch(26.43% 0.00718 285.95)",
+          "oklch(37.86% 0.00718 285.95)",
+          "oklch(49.29% 0.00718 285.95)",
+          "oklch(60.71% 0.00718 285.95)",
+          "oklch(72.14% 0.00718 285.95)",
+          "oklch(83.57% 0.00718 285.95)",
+          "oklch(95.00% 0.00718 285.95)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Public headline",
+        "purpose": "Responsive page titles and wrap-safe GitHub handles."
+      },
+      "count": {
+        "displayName": "Reaction count",
+        "purpose": "Compact tabular monospace counts beside emoji."
+      }
+    },
+    "shadows": [
+      {
+        "name": "selected-visibility",
+        "value": "0 1px 2px #0001",
+        "purpose": "Small structural shadow on the selected Public / Private segment only."
+      }
+    ],
+    "motion": [
+      {
+        "name": "picker-entry",
+        "value": ".13s cubic-bezier(.16,1,.3,1)",
+        "purpose": "Only with prefers-reduced-motion: no-preference; translateY(3px) to 0 and opacity .7 to 1."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow",
+        "value": "500px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Install extension",
+      "kind": "button",
+      "refersTo": "button-install",
+      "description": "Public-site installation link with the actual lime hover and focus treatments.",
+      "html": "<a class=\"ds-install\" href=\"#\">Get the Chrome / Helium extension \u2197</a>",
+      "css": ".ds-install{font:16px/1.6 Geist,system-ui,sans-serif;display:inline-block;background:#d9f66f;color:#17230f;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600}.ds-install:hover{background:#c9e75d;color:#17230f}.ds-install:focus-visible{outline:2px solid var(--accent,#335d10);outline-offset:5px}"
+    },
+    {
+      "name": "Connect GitHub",
+      "kind": "button",
+      "refersTo": "button-settings",
+      "description": "Connection-settings action, including hover, focus and disabled states.",
+      "html": "<button class=\"ds-connect\">Connect GitHub</button>",
+      "css": ".ds-connect{font:600 15px/1.6 Geist,system-ui,sans-serif;border:0;border-radius:6px;background:var(--blue,#2e5ccb);color:var(--bg,#f6f7f8);padding:9px 16px;cursor:pointer}.ds-connect:hover{filter:brightness(.93)}.ds-connect:focus-visible{outline:2px solid var(--blue,#2e5ccb);outline-offset:3px}.ds-connect:disabled{opacity:.55;cursor:wait}"
+    },
+    {
+      "name": "Secondary action",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Connection-settings action, including hover, focus and disabled states.",
+      "html": "<button class=\"ds-secondary\">Refresh repositories</button>",
+      "css": ".ds-secondary{font:600 15px/1.6 Geist,system-ui,sans-serif;border:0;border-radius:6px;background:var(--wash,#eef0f2);color:var(--ink,#121417);padding:9px 16px;cursor:pointer}.ds-secondary:hover{filter:brightness(.93)}.ds-secondary:focus-visible{outline:2px solid var(--blue,#2e5ccb);outline-offset:3px}.ds-secondary:disabled{opacity:.55;cursor:wait}"
+    },
+    {
+      "name": "View profile",
+      "kind": "button",
+      "refersTo": "button-profile",
+      "description": "Public-site submit button.",
+      "html": "<button class=\"ds-profile-button\">View profile</button>",
+      "css": ".ds-profile-button{font:16px/1.6 Geist,system-ui,sans-serif;background:var(--ink,#121417);color:var(--bg,#f6f7f8);border:0;border-radius:6px;padding:10px 16px;cursor:pointer}.ds-profile-button:hover{opacity:.85}.ds-profile-button:focus-visible{outline:2px solid var(--accent,#335d10);outline-offset:5px}"
+    },
+    {
+      "name": "Profile handle field",
+      "kind": "input",
+      "refersTo": "input-profile",
+      "description": "Labeled public profile lookup field.",
+      "html": "<label class=\"ds-label\" for=\"ds-handle\">Find a public reaction profile</label><input class=\"ds-input\" id=\"ds-handle\" placeholder=\"GitHub handle\" maxlength=\"39\" autocomplete=\"off\">",
+      "css": ".ds-label{font:16px/1.6 Geist,system-ui,sans-serif;display:block;font-weight:600;margin-bottom:8px;color:var(--ink,#121417)}.ds-input{font:16px/1.6 Geist,system-ui,sans-serif;background:var(--surface,#fff);color:var(--ink,#121417);padding:10px 12px;border:1px solid var(--line,#d3d7dd);border-radius:6px;min-width:0;caret-color:var(--accent,#335d10)}.ds-input:focus-visible{outline:2px solid var(--accent,#335d10);outline-offset:5px}"
+    },
+    {
+      "name": "Site filter navigation",
+      "kind": "nav",
+      "refersTo": "filter-active",
+      "description": "Public profile filters; active state is carried by aria-current.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Filter by site\"><a href=\"#\" aria-current=\"true\">All</a><a href=\"#\">dev-null</a><a href=\"#\">X</a><a href=\"#\">LinkedIn</a></nav>",
+      "css": ".ds-nav{display:flex;gap:8px;flex-wrap:wrap}.ds-nav a{font:14px/1.6 Geist,system-ui,sans-serif;color:var(--ink,#121417);padding:5px 12px;text-decoration:none;border-radius:6px}.ds-nav a:hover{color:var(--accent,#335d10)}.ds-nav a[aria-current=true]{background:var(--ink,#121417);color:var(--bg,#f6f7f8)}.ds-nav a:focus-visible{outline:2px solid var(--accent,#335d10);outline-offset:5px}"
+    },
+    {
+      "name": "Reaction chip",
+      "kind": "chip",
+      "refersTo": "chip-reaction",
+      "description": "Selected reaction with tabular count, hover wash, and accessible ownership label.",
+      "html": "<button class=\"ds-chip\" aria-pressed=\"true\" aria-label=\"\ud83d\ude80, 3 reactions, yours. Remove reaction\">\ud83d\ude80 <span>3</span></button>",
+      "css": ".ds-chip{font:16px/1.45 Geist,system-ui,sans-serif;border:0;background:none;color:var(--rx-muted,#5b616b);border-radius:6px;min-height:28px;padding:4px 6px;display:inline-flex;gap:4px;align-items:center;justify-content:center;cursor:pointer}.ds-chip span{font:12px/1.4 \"Geist Mono\",ui-monospace,monospace;font-variant-numeric:tabular-nums}.ds-chip:hover{background:var(--rx-wash,#eef0f2);color:var(--rx-ink,#121417)}.ds-chip[aria-pressed=true]{color:var(--rx-blue,#3b6fe0);background:var(--rx-wash,#eef0f2)}.ds-chip:focus-visible{outline:2px solid var(--rx-blue,#3b6fe0);outline-offset:2px}.ds-chip:disabled{opacity:.55;cursor:wait}"
+    },
+    {
+      "name": "Visibility switch",
+      "kind": "custom",
+      "refersTo": "picker",
+      "description": "Exact Public / Private labels; the selected segment retains its inherited translucent fill and small shadow.",
+      "html": "<div class=\"ds-visibility\" role=\"group\" aria-label=\"Reaction visibility\"><button aria-pressed=\"true\">Public</button><button aria-pressed=\"false\">Private</button></div><p class=\"ds-scope\">Visible on your public reacji.to profile.</p>",
+      "css": ".ds-visibility{display:flex;margin:0 12px;border:1px solid var(--border,#ddd);border-radius:6px;padding:3px;gap:3px;color:var(--rx-ink,#121417)}.ds-visibility button{font:14px/1.45 Geist,system-ui,sans-serif;flex:1;padding:6px 12px;border:0;border-radius:4px;background:transparent;color:inherit;cursor:pointer}.ds-visibility button[aria-pressed=true]{background:#7772;font-weight:600;box-shadow:0 1px 2px #0001}.ds-visibility button:focus-visible{outline:2px solid var(--rx-blue,#3b6fe0);outline-offset:2px}.ds-visibility button:disabled{opacity:.55;cursor:wait}.ds-scope{font:11px/1.45 Geist,system-ui,sans-serif;margin:8px 14px;opacity:.75;color:var(--rx-ink,#121417)}"
+    },
+    {
+      "name": "Picker surface",
+      "kind": "card",
+      "refersTo": "picker",
+      "description": "Static surface preview showing the actual title, close control and search field; live positioning and behavior are documented in DESIGN.md.",
+      "html": "<section class=\"ds-picker\" aria-label=\"Choose a reaction\"><div class=\"ds-head\"><strong>reacji.to</strong><button class=\"ds-close\" aria-label=\"Close reactions\">\u00d7</button></div><div class=\"ds-controls\"><input class=\"ds-search\" aria-label=\"Search or paste any emoji\" placeholder=\"Search or paste any emoji\"></div></section>",
+      "css": ".ds-picker{font:14px/1.45 Geist,system-ui,sans-serif;width:min(348px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;background:var(--rx-bg,#fff);color:var(--rx-ink,#121417);border:1px solid var(--rx-line,#e1e4e8);border-radius:12px}.ds-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 6px}.ds-head strong{font-size:15px;font-weight:600}.ds-close{border:0;background:none;color:var(--rx-muted,#5b616b);border-radius:4px;width:28px;height:28px;font-size:22px;line-height:1;cursor:pointer}.ds-close:hover{background:var(--rx-wash,#eef0f2)}.ds-controls{padding:0 14px 10px}.ds-search{font:inherit;width:100%;max-width:100%;padding:9px 10px;background:var(--rx-bg,#fff);color:var(--rx-ink,#121417);border:1px solid var(--rx-line,#e1e4e8);border-radius:6px;caret-color:var(--rx-blue,#3b6fe0)}.ds-search::placeholder{color:var(--rx-muted,#5b616b)}.ds-close:focus-visible,.ds-search:focus-visible{outline:2px solid var(--rx-blue,#3b6fe0);outline-offset:2px}"
+    },
+    {
+      "name": "Public reaction row",
+      "kind": "custom",
+      "description": "Open ruled feed row with responsive date placement; no enclosed card treatment.",
+      "html": "<div class=\"ds-row\"><span class=\"ds-emoji\" role=\"img\" aria-label=\"\ud83d\ude80\">\ud83d\ude80</span><div class=\"ds-entry\"><a href=\"#\">X post \u2197</a><small>123456789</small></div><time datetime=\"2026-10-18\">Oct 18, 2026</time></div>",
+      "css": ".ds-row{font:16px/1.6 Geist,system-ui,sans-serif;color:var(--ink,#121417);display:grid;grid-template-columns:64px minmax(0,1fr) auto;align-items:center;gap:18px;padding:22px 0;border-top:1px solid var(--line,#d3d7dd)}.ds-emoji{font:36px/1.2 \"Apple Color Emoji\",\"Segoe UI Emoji\",sans-serif;text-align:center}.ds-entry a{color:inherit;font-weight:600;text-decoration:none}.ds-entry a:hover{color:var(--accent,#335d10);text-decoration:underline}.ds-entry a:focus-visible{outline:2px solid var(--accent,#335d10);outline-offset:5px}.ds-entry small{display:block;color:var(--muted,#535b65);overflow-wrap:anywhere}.ds-row time{font-size:13px;color:var(--muted,#535b65);font-variant-numeric:tabular-nums}@media(max-width:500px){.ds-row{grid-template-columns:44px minmax(0,1fr);gap:12px}.ds-emoji{font-size:30px}.ds-row time{grid-column:2;margin-top:-12px}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "A small native smile",
+    "overview": "The existing interface is restrained, readable, and close to the host site's native controls. The approved identity adds a compact lime smiley and the reacji.to wordmark. The smiley is the expressive detail; ordinary controls, separators, and type carry the rest of the interface.\n\nThis document describes the shipped implementation, including its inherited differences between the embedded picker, connection settings, and public website. The north star is a descriptive shorthand for that implementation, not a new visual direction. Evidence: `src/content.css`, `src/content.js`, `src/options.css`, `src/options.html`, `public/logo.svg`, and `worker/pages.js`; the desktop and mobile profile captures in `.impeccable/review/` corroborate the public profile layout.",
+    "keyCharacteristics": [
+      "Compact smiley branding with a lime fill and dark ink.",
+      "System sans typography, restrained weights, and readable identifiers.",
+      "Flat neutral surfaces with thin separators and gently rounded controls.",
+      "Host-aware picker colors, automatic light/dark settings and public pages.",
+      "Explicit Public / Private state and keyboard-visible controls."
+    ],
+    "rules": [
+      {
+        "name": "The Native Color Rule",
+        "body": "Preserve the picker's host-token inheritance and existing blue action states; the brand change does not recolor every control lime.",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "**Do** preserve the compact lime smiley asset and reacji.to wordmark.",
+      "**Do** preserve the embedded picker's inherited host colors and native-sized controls.",
+      "**Do** use ruled profile rows, wrapping identifiers, and visible keyboard focus.",
+      "**Do** keep Public / Private labels and their explanatory state text explicit.",
+      "**Do** preserve dark-theme mappings and the reduced-motion condition on picker entry."
+    ],
+    "donts": [
+      "**Don't** spread the lime brand color across the existing blue connection and picker controls.",
+      "**Don't** turn the flat profile feed into shadowed cards or decorate the rows with unrelated imagery.",
+      "**Don't** imply that switching visibility moves or erases the separate reaction in the other mode.",
+      "**Don't** include private reactions or private counts in the public profile.",
+      "**Don't** assume Geist is bundled or replace the platform emoji artwork with a new icon set."
+    ]
+  }
+}

@@ -1,79 +1,61 @@
-# /dev/null reactions
+# reacji.to
 
-A Chrome / Helium extension that puts a smiley next to the star on [dev-null.sh](https://dev-null.sh/). Search or paste any of the 3,944 Unicode 17 emoji, including skin tones, flags, and families. One reaction per GitHub account per post; choose a different emoji to replace it, or choose yours again to remove it.
+A Chrome / Helium extension that adds a smiley beside the star on [dev-null.sh](https://dev-null.sh/) and under posts on X and LinkedIn. Search or paste any of 3,944 Unicode 17 emoji, including skin tones, flags, and families.
 
-Reactions are shared with other extension users. Each change becomes a Git commit. **No GitHub Pages, hosted database, or shared write token.**
+The picker has a **Public / Private** switcher. Public reactions live in `mrjf/dev-null-reactions`. Private reactions live in a private repository you own and choose after GitHub sign-in. Each post has one JSON file per repository: `data/<uuid>.json` for dev-null, `data/x/<id>.json` for X, and `data/linkedin/<activity-id>.json` for LinkedIn. Every change creates a Git commit directly; there are no reaction issues, GitHub Actions queues, or GitHub Pages.
 
-## Install
+## Deployment status
 
-1. Download `dev-null-reactions.zip` from [Releases](https://github.com/mrjf/dev-null-reactions/releases/latest), and extract it into a permanent folder.
-2. Open `chrome://extensions` in Chrome, or `helium://extensions` in Helium.
-3. Enable **Developer mode**, choose **Load unpacked**, and select the extracted folder containing `manifest.json`.
-4. Reload dev-null.sh. The outlined smiley appears immediately after every star, including read-only star counts on your own posts.
+The Worker and public profile pages are deployed on reacji.to. Reaction writes still require the owner to install the GitHub App on the shared repo and supply its private key as a Worker secret. `/health` reports whether that key is present. The new extension is packaged locally; v0.1.0 is the older issue-queue release.
 
-For a local build, use the `dist/` folder instead. An unpacked extension does not auto-update: replace its files with a newer release and click **Reload** on the extensions page. Chrome Web Store publication would provide automatic updates; this project is not listed there.
+## Install and connect
 
-## React
+1. Download and extract the extension ZIP from [Releases](https://github.com/mrjf/dev-null-reactions/releases).
+2. Open `chrome://extensions` or `helium://extensions`, enable Developer mode, choose Load unpacked, and select the extracted folder. For local development, select `dist/` after building.
+3. Open the extension settings and click **Connect GitHub**. Enter the displayed code at GitHub and authorize **dev-null reactions**.
+4. For Private mode, choose **Choose repositories on GitHub** and install the app using **Only select repositories**. Select your private reactions repository. Alternatively, **Create a new private repo** opens GitHub’s repository form; select Private, create it, then install the app on that repo.
+5. Return to extension settings, refresh the repository list, choose your private repo, and save. Only private repos personally owned by the connected GitHub account and available to the app are listed.
+6. Reload dev-null, X, or LinkedIn. Open the smiley, select **Public** or **Private**, and choose an emoji.
 
-**Without a token:** pick an emoji, then click **Submit new issue** in the GitHub tab that opens. GitHub sign-in is required. The reaction is not submitted until that final click. Use **Remove my reaction** in the picker to submit a removal the same way.
+All three sites use your GitHub identity. On dev-null, the extension checks the currently signed-in dev-null account before every write and private read. GitHub must be connected as the same account. Signed-out or mismatched accounts are blocked. Public counts can be read without connecting.
 
-**One-click reactions:** click the extension toolbar button, then connect a GitHub personal access token. For public participation in this shared repository, a classic token needs `public_repo`. This is a broad scope that also covers your other public repositories; the token-free flow is available if you prefer not to grant it. A fine-grained token works only when it can grant **Issues: write** for this repository (typically the owner/collaborators). No repository Contents permission is needed by extension users.
+One reaction per account per post **in each mode**. Pick another emoji to replace it, or pick your current emoji again to remove it. Public and Private are separate stores: switching the picker does not move or erase an existing public reaction. The picker tells you when a separate public reaction remains. Git history preserves removed reactions.
 
-Tokens stay in extension-only session storage by default. The optional remember setting uses extension-only local storage. They are sent only to `api.github.com`; the website and content scripts cannot read them. Disconnect removes the saved token; revoke it in GitHub settings if you want to invalidate it there too.
+Unpacked extensions do not auto-update. Replace the extension files and click Reload on the extensions page when installing a new release.
 
-## How the Git storage works
+## How it works
 
 ```text
-smiley → emoji → authenticated GitHub issue
-                        ↓
-                 GitHub Actions
-                        ↓
-          commit data/<post-uuid>.json
-                        ↓
-           extension fetches raw file
+picker → fresh dev-null session check → GitHub identity comparison
+                                      ↓
+                         reacji.to Cloudflare Worker
+                                      ↓
+                    GitHub App installation token
+                    restricted to one selected repo
+                                      ↓
+                 commit data/<post-uuid>.json directly
 ```
 
-An issue with the exact title `[reaction:v1]` contains a small versioned event:
+Public profiles at `https://reacji.to/YOUR_GITHUB_HANDLE` show current public reactions across all three sites, with platform filters and pagination. Profiles are keyed internally by numeric GitHub ID, so handle changes do not lose reactions. Public writes update both the post file and `profiles/<github-id>.json` in one atomic Git commit. Removal also removes the reaction from the current profile. Private writes never touch a public profile.
 
-```json
-{"version":1,"commit":"01a14f9d-76a7-72d9-a92d-48ae9ea999cb","emoji":"👩🏾‍💻"}
-```
+The Worker verifies the OAuth token against GitHub `/user`, resolves the dev-null username through GitHub, and compares stable numeric account IDs. It derives the stored actor from GitHub, never from an actor field in a submitted event. The shared repository is pinned by numeric repository ID. Private targets must be private, personally owned by that actor, and writable through the user’s GitHub App token. The same checks run on each request, so making a private repo public disables Private mode for that repo.
 
-Use `"emoji":null` to remove a reaction. The writer derives identity from **GitHub's issue author**, never from JSON supplied by the client. Stable numeric account IDs prevent a rename from creating a second vote. The commit is made by the workflow's GitHub identity; its message credits the submitting account and links the issue by number.
+The GitHub App requests **Contents: read and write** and GitHub’s mandatory **Metadata: read**. It requests no Issues, Actions, Administration, or account permissions. Install it only on the reaction repositories you select. GitHub cannot restrict Contents permission to a folder or to commits alone: the Worker restricts all data writes to validated platform/post paths and the authenticated user’s public profile index. It never accepts an arbitrary path, branch, or commit author from a caller.
 
-Each post that receives a reaction has exactly one data file:
+OAuth credentials represent the user; commits use a short-lived installation token restricted to exactly one repository and Contents write. The app’s private key is stored only as a Cloudflare Worker secret. It is never included in the extension. The Worker serializes changes per repository, uses SHA-conditional writes for private files and non-forced Git ref updates for atomic public post/profile changes, with bounded retries, and remembers completed request IDs for at least 24 hours. Same-value requests are no-ops. Rate limiting allows 30 writes per actor per repo per minute. Requests are not logged, and reaction data is stored in Git, not a separate database. The Durable Object stores only request timestamps and rate counters.
 
-```json
-{
-  "version": 1,
-  "commit": "01a14f9d-76a7-72d9-a92d-48ae9ea999cb",
-  "users": {
-    "42": {
-      "login": "example",
-      "emoji": "👩🏾‍💻",
-      "issue": 123,
-      "at": "2026-10-18T20:00:00Z"
-    }
-  }
-}
-```
+Public files are fetched directly from GitHub’s raw endpoint for visible posts, every 30 seconds while the tab is visible. Private files are read through the Worker with OAuth authorization and `no-store`; they never use the public raw endpoint or public counts. Private data is not persisted in extension storage and is cleared from the page when the tab is hidden. Ordinary `git clone` / `git pull` works for both repos with the appropriate GitHub credentials.
 
-Removed reactions remain as `emoji: null` tombstones so retries and older events cannot bring them back. Different emoji are aggregated by the extension; no separate counter files are required.
+## Identity and privacy boundaries
 
-The extension fetches `https://raw.githubusercontent.com/mrjf/dev-null-reactions/main/data/<post-uuid>.json` for visible posts, refreshing every 30 seconds while the tab is visible. It does not clone the repository or execute Git. You can also `git clone` or `git pull` the repository normally to inspect the same data locally.
+- dev-null hides its numeric GitHub ID, so the extension reads the current session’s username from a fresh Inertia response and resolves that username through GitHub. When the session exposes a GitHub avatar URL, its embedded numeric ID must also match, preventing username reassignment from substituting an account. A GitHub rename not yet reflected by dev-null can block the check until dev-null syncs it.
+- dev-null does not expose an authentication delegation API. The extension enforces the current site-session check; a separate backend cannot cryptographically prove that a supplied username came from that browser session. The Worker always independently verifies GitHub identity. No dev-null cookies or session credentials are sent to the Worker.
+- OAuth tokens stay in extension-only storage, either for the session or across restarts if selected. They are sent only to GitHub and `https://reacji.to`. Disconnect clears local credentials; revoke the app authorization on GitHub to revoke them there too.
+- Private means stored in a private GitHub repository. Repository collaborators, GitHub, and the app operator can access that repo; this is not end-to-end encryption. Private reactions are displayed only in the connected owner’s extension and never added to public counts.
+- The app has no repository-creation permission. Creating a private repo uses GitHub’s own UI, followed by installing the app on that repo. Do not choose All repositories.
+- Existing v0.1 releases used the retired issue queue. Use the new release once the Worker and app credentials are configured.
 
-The writer drains **all open submissions in issue order**, then closes each only after its commit succeeds. This handles GitHub's concurrency queue replacing a pending run without losing that run's reaction. A periodic recovery run catches stranded issues. SHA-conditional writes retry conflicts; repeated issue processing is idempotent. A reaction uses one Contents API write and therefore one Git commit.
-
-## Limits and privacy
-
-- GitHub Actions startup and GitHub's raw-file caches delay shared counts, often a minute or two and sometimes longer. A successful one-click submission is shown locally as queued; that is not confirmation that the writer has run. Its issue link is available in the notification.
-- Reactions, GitHub account IDs, usernames, issues, and historical changes are public. Removal changes the current counts; it does not erase Git history or the submission issue.
-- This extension's reactions are separate from dev-null's native stars and notifications. People without the extension will not see them. Authentication is through GitHub, so it does not require access to the site's cookies or login session.
-- Unicode 17 is bundled, so the picker works without a CDN; glyph support depends on the operating system. Future Unicode additions require an extension update.
-- GitHub API/Actions limits apply. Issue-per-change is intended for a small community, not a high-throughput service. Repository maintainers can moderate abusive submissions and restore files using Git. The writer validates UUID/emoji/actor format, but does not check whether a UUID is a real public dev-null post.
-- DOM integration uses upstream's `data-commit`, `star-commit-button`, and `star-count-readonly` attributes. If the site changes these, the adapter may need updating. Inspected upstream commit: `00793d4ec8d945b27bfc5bd0db59647415280b0c`.
-
-## Develop
+## Develop and deploy
 
 Requires Node 24+ and npm.
 
@@ -84,25 +66,11 @@ npm run build
 npx playwright install chromium
 npm run test:e2e
 npm run package
+npx wrangler deploy --dry-run
 ```
 
-`dist/` is loadable as an unpacked extension; `artifacts/dev-null-reactions.zip` is the distributable. Browser tests include the actual MV3 service worker, plus search, complex emoji, changes/removals, API errors, token-free submission, dynamic feed insertion, keyboard behavior, and a narrow dark viewport. Protocol/writer tests cover identity spoofing, idempotency, pagination, SHA conflicts, and crash recovery. Tests use fabricated accounts and make no public reaction submissions.
+See [GitHub App and Worker setup](docs/github-app.md) for deployment. `src/config.js` contains public IDs and the service URL; no secrets belong in source. `wrangler.jsonc` configures the Worker and a SQLite Durable Object used to serialize commits. Private keys and `.dev.vars` are ignored by Git.
 
-## Run your own repository
+Tests mock external writes and use fabricated accounts. They cover OAuth polling/refresh, actual MV3 injection, session changes, mismatched accounts, private repository filtering, public/private separation, path restrictions, permission narrowing, conflict recovery, emoji search, keyboard behavior, and mobile layout. Tests use synthetic X/LinkedIn markup; those sites can change their DOM and may require adapter updates. No test submits a reaction on a real social post.
 
-1. Create a public repository on a `main` branch with Issues and Actions enabled, and push this source.
-2. Set `REPOSITORY` and `DATA_URL` in `src/config.js` to your repository. Rebuild and distribute that extension. All users of a build read/write the same configured repository.
-3. Enable the **Record reactions** workflow. It uses the built-in `GITHUB_TOKEN` with Contents and Issues write permissions; no external secret is required. No Pages setup is involved.
-4. Run **Record reactions → Run workflow** once to check installation. Subsequent reaction issues trigger it automatically. If an organization restricts workflow write permissions, allow these permissions before accepting submissions.
-
-Deploy on a dedicated repository: public issue bodies are untrusted input, and the writer deliberately never executes them. The workflow always checks out trusted `main`, not submitted code, and never interpolates issue text into shell commands. Keep workflow changes restricted to maintainers.
-
-## Reference
-
-- [dev-null source](https://github.com/nunomaduro/dev-null.sh) — native “commits” are database posts; this extension supplies separate Git-backed reaction storage.
-- [GitHub Issues API](https://docs.github.com/en/rest/issues/issues#create-an-issue)
-- [GitHub Contents API](https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents)
-- [Chrome extension cross-origin requests](https://developer.chrome.com/docs/extensions/develop/concepts/network-requests)
-- [Helium Chromium-extension support](https://helium.computer/)
-
-Independent project, not affiliated with /dev/null or GitHub. MIT; Unicode data has its own license in `THIRD_PARTY_NOTICES.md`.
+Independent project, not affiliated with dev-null, X, LinkedIn, or GitHub. MIT; Unicode data is covered by `THIRD_PARTY_NOTICES.md`.

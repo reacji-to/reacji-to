@@ -1,3 +1,4 @@
+import { postRef } from './posts.js';
 import emojis from './emoji.json' with { type: 'json' };
 
 // Unicode's fully-qualified sequences include flags, ZWJ families, and skin tones.
@@ -9,22 +10,10 @@ export function emojiValue(value) {
   return canonical.get(normalize(value.trim())) || null;
 }
 export function parseReaction(value) {
-  if (!value || value.version !== 1 || !COMMIT_ID.test(value.commit)) throw new Error('Invalid commit reference.');
+  if (!value || value.version !== 1) throw new Error('Invalid post reference.');
+  const post = postRef(value.post || value.commit);
   if (value.emoji !== null && !emojiValue(value.emoji)) throw new Error('Choose one Unicode emoji.');
-  return { version: 1, commit: value.commit.toLowerCase(), emoji: value.emoji === null ? null : emojiValue(value.emoji) };
-}
-export function parseIssue(issue) {
-  if (issue.pull_request || issue.title !== '[reaction:v1]' || typeof issue.body !== 'string' || issue.body.length > 1000) return null;
-  const reaction = parseReaction(JSON.parse(issue.body));
-  if (!Number.isSafeInteger(issue.number) || !Number.isSafeInteger(issue.user?.id) || !/^[a-z\d-]{1,39}$/i.test(issue.user?.login)) throw new Error('Invalid GitHub actor.');
-  return { ...reaction, issue: issue.number, actor: { id: issue.user.id, login: issue.user.login }, at: issue.created_at };
-}
-export function applyReaction(document, event) {
-  const next = structuredClone(document || { version: 1, commit: event.commit, users: {} });
-  const key = String(event.actor.id);
-  if ((next.users[key]?.issue || 0) >= event.issue) return { document: next, changed: false };
-  next.users[key] = { login: event.actor.login, emoji: event.emoji, issue: event.issue, at: event.at };
-  return { document: next, changed: true };
+  return { version: 1, commit: post.id, ...(value.post ? { post } : {}), emoji: value.emoji === null ? null : emojiValue(value.emoji) };
 }
 export function summarize(document, actorId) {
   const groups = new Map();

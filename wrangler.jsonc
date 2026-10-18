@@ -1,0 +1,38 @@
+{
+  "name": "reacji",
+  "main": "worker/index.js",
+  "account_id": "8ce2cffc47b8b76a6f1d67997bf196bf",
+  "compatibility_date": "2026-10-18",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "vars": {
+    "GITHUB_APP_ID": "5371073"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "WRITERS",
+        "class_name": "RepositoryWriter"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "RepositoryWriter"
+      ]
+    }
+  ],
+  "observability": {
+    "enabled": false
+  },
+  "routes": [
+    {
+      "pattern": "reacji.to",
+      "custom_domain": true
+    }
+  ]
+}

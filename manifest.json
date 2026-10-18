@@ -1,13 +1,56 @@
 {
   "manifest_version": 3,
-  "name": "/dev/null reactions",
-  "version": "0.1.0",
-  "description": "React to dev-null.sh commits with any emoji. Shared reactions, recorded in Git.",
+  "name": "reacji.to",
+  "version": "0.2.0",
+  "description": "Any emoji, on dev-null, X and LinkedIn. Public or private reactions, saved in Git and tied to your GitHub identity.",
   "minimum_chrome_version": "120",
-  "permissions": ["storage"],
-  "host_permissions": ["https://api.github.com/*", "https://raw.githubusercontent.com/*"],
-  "background": { "service_worker": "background.js", "type": "module" },
-  "content_scripts": [{ "matches": ["https://dev-null.sh/*"], "js": ["content.js"], "run_at": "document_idle" }],
-  "action": { "default_title": "/dev/null reactions · settings" },
-  "options_ui": { "page": "options.html", "open_in_tab": true }
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://api.github.com/*",
+    "https://raw.githubusercontent.com/*",
+    "https://github.com/*",
+    "https://reacji.to/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://dev-null.sh/*",
+        "https://x.com/*",
+        "https://www.x.com/*",
+        "https://twitter.com/*",
+        "https://www.twitter.com/*",
+        "https://www.linkedin.com/*",
+        "https://linkedin.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "reacji.to \u00b7 settings",
+    "default_icon": {
+      "16": "icon-16.png",
+      "32": "icon-32.png",
+      "48": "icon-48.png",
+      "128": "icon-128.png"
+    }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "icon-16.png",
+    "32": "icon-32.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  }
 }

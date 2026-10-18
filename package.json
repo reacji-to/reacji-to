@@ -1,7 +1,7 @@
 {
-  "name": "dev-null-reactions",
-  "version": "0.1.0",
-  "description": "Any-emoji reactions for dev-null.sh, recorded in Git.",
+  "name": "reacji-to",
+  "version": "0.2.0",
+  "description": "Public and private emoji reactions across dev-null, X and LinkedIn, recorded in Git.",
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node --test tests/*.test.js",
@@ -14,7 +14,8 @@
   "type": "module",
   "devDependencies": {
     "@playwright/test": "^1.64.1",
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "wrangler": "^4.151.1"
   },
   "private": true
 }
