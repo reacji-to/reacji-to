@@ -1,6 +1,6 @@
 ---
-name: reacji.to
-description: A compact native reaction interface with a lime smiley identity.
+name: reacji-to
+description: A compact native reaction interface with sideways-looking eyes on lime.
 colors:
   brand-lime: "#d9f66f"
   brand-lime-hover: "#c9e75d"
@@ -125,19 +125,19 @@ components:
     width: "min(348px, calc(100vw - 24px))"
 ---
 
-# Design System: reacji.to
+# Design System: reacji-to
 
 ## Overview
 
-**Creative North Star: "A small native smile"**
+**Creative North Star: "A small sideways glance"**
 
-The existing interface is restrained, readable, and close to the host site's native controls. The approved identity adds a compact lime smiley and the reacji.to wordmark. The smiley is the expressive detail; ordinary controls, separators, and type carry the rest of the interface.
+The existing interface is restrained, readable, and close to the host site's native controls. The approved identity adds a compact pair of emoji-inspired, sideways-looking eyes on lime and the reacji-to wordmark. The eyes are the expressive detail; ordinary controls, separators, and type carry the rest of the interface. The app name and wordmark are reacji-to; the public domain remains reacji.to.
 
-This document describes the shipped implementation, including its inherited differences between the embedded picker, connection settings, and public website. The north star is a descriptive shorthand for that implementation, not a new visual direction. Evidence: `src/content.css`, `src/content.js`, `src/options.css`, `src/options.html`, `public/logo.svg`, and `worker/pages.js`; the desktop and mobile profile captures in `.impeccable/review/` corroborate the public profile layout.
+This document describes the shipped implementation, including its inherited differences between the embedded picker, connection settings, and public website. The north star is a descriptive shorthand for that implementation, not a new visual direction. Evidence: `src/content.css`, `src/content.js`, `src/options.css`, `src/options.html`, `public/logo.svg`, and `worker/pages.js`; the desktop and mobile profile captures in `.impeccable/review/` and the picker capture in `artifacts/x-picker.png` corroborate the current identity and layouts.
 
 **Key Characteristics:**
 
-- Compact smiley branding with a lime fill and dark ink.
+- Compact eyes branding with white ovals, dark outlines and pupils, and a lime tile.
 - System sans typography, restrained weights, and readable identifiers.
 - Flat neutral surfaces with thin separators and gently rounded controls.
 - Host-aware picker colors, automatic light/dark settings and public pages.
@@ -149,8 +149,8 @@ Lime identifies the brand and the public site's installation action; neutral sur
 
 ### Primary
 
-- **Brand lime** fills the smiley and public installation CTA; its hover variant appears only on that CTA. In the public dark theme it also supplies link-hover and focus color.
-- **Brand ink** supplies the smiley's face and lime CTA text.
+- **Brand lime** fills the eyes logo’s rounded-square tile and public installation CTA; its hover variant appears only on that CTA. In the public dark theme it also supplies link-hover and focus color.
+- **Brand ink** supplies the eyes’ outlines and offset pupils, and lime CTA text.
 - **Site accent** is the darker green for public-site link hovers, focus outlines, and input caret in the light theme.
 
 ### Secondary
@@ -194,7 +194,7 @@ The picker enters over (.13s) with `cubic-bezier(.16,1,.3,1)`, moving upward fro
 
 Small rectangular controls use the control radius; the close control and visibility segments use the smaller radius. The picker and toast use the distinct larger radii recorded above. Inputs and panel boundaries use thin (1px) borders. Profile rows remain open and ruled rather than enclosed in cards.
 
-The approved logo is a (64 × 64) SVG with a rounded-square corner radius of (20), two circular eyes, and a curved smile with round stroke caps. Its public header and settings display size is (36 × 36px). Preserve the source asset's proportions and legibility at the requested (16px) minimum. The embedded trigger remains the inherited (16px) outline smiley rather than the filled brand tile.
+The approved logo is a (64 × 64) SVG with a lime rounded-square tile and corner radius of (18). Two white oval eyes are centered at (22, 32) and (45, 32), with radii (11 × 17) and dark-ink outlines of width (3). Dark pupils are centered at (19, 34) and (42, 34), with radii (5 × 8); their leftward offset creates the sideways glance. Its public header and settings display size is (36 × 36px). Preserve the source asset’s proportions and legibility at the requested (16px) minimum. The embedded (16px) trigger uses a matching outline-eyes SVG in a (24 × 24) viewBox, with current-color outlines and filled offset pupils, without the lime tile. Non-inline triggers also carry the reacji-to label.
 
 ## Components
 
@@ -228,7 +228,7 @@ Empty, missing-profile, and unavailable states reuse the same header, main, and 
 
 ### Do:
 
-- **Do** preserve the compact lime smiley asset and reacji.to wordmark.
+- **Do** preserve the compact eyes-on-lime asset and reacji-to wordmark.
 - **Do** preserve the embedded picker's inherited host colors and native-sized controls.
 - **Do** use ruled profile rows, wrapping identifiers, and visible keyboard focus.
 - **Do** keep Public / Private labels and their explanatory state text explicit.

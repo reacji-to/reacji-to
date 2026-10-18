@@ -25,10 +25,10 @@ async function setup(page, { connected = true, fail = false, readFail = false } 
   await page.goto('https://dev-null.sh/');
   await page.addScriptTag({ path: 'dist/content.js' });
 }
-test('smiley sits immediately beside the star; search, react, change, remove', async ({ page }) => {
+test('eyes icon sits immediately beside the star; search, react, change, remove', async ({ page }) => {
   await setup(page);
   const first = page.locator('article[data-commit]').first();
-  await expect(first.locator('[data-test="star-commit-button"] + devnull-reactions')).toHaveCount(1);
+  await expect(first.locator('[data-test="star-commit-button"] + reacji-to-reactions')).toHaveCount(1);
   await first.getByRole('button', { name: 'React with an emoji', exact: true }).click();
   await page.getByRole('searchbox').fill('woman technologist: medium-dark skin tone');
   await page.getByRole('button', { name: 'woman technologist: medium-dark skin tone', exact: true }).click();
@@ -85,7 +85,7 @@ test('feed mutations do not duplicate controls; readonly stars also get reaction
   const before = await page.getByRole('button', { name: 'React with an emoji', exact: true }).count();
   await page.evaluate(() => {
     const card = document.querySelector('article[data-commit]').cloneNode(true);
-    card.querySelectorAll('devnull-reactions').forEach(el => el.remove());
+    card.querySelectorAll('reacji-to-reactions').forEach(el => el.remove());
     card.querySelector('[data-test="star-commit-button"]').setAttribute('data-test', 'star-count-readonly');
     document.querySelector('main').append(card);
   });

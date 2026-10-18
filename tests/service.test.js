@@ -37,7 +37,7 @@ test('private target must remain private and personally owned with write access'
 test('public target is pinned by numeric repository ID', async () => {
   const f = fixture(() => Response.json({ id: 123, private: false, full_name: 'attacker/repo' }));
   await assert.rejects(f.service.target('token', user, 'public', 'attacker/repo'), /configured repository/);
-  assert.equal(f.calls[0].path, '/repos/mrjf/dev-null-reactions');
+  assert.equal(f.calls[0].path, '/repos/reacji-to/reacji-to');
 });
 test('direct commit limits installation token to one repo and writes only the post file', async () => {
   const f = fixture((path, init) => init.method === 'PUT' ? Response.json({ commit: { sha: 'abc123' } }) : new Response('', { status: 404 }));

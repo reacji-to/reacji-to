@@ -76,7 +76,7 @@ async function handle(message, sender) {
     await auth.disconnect(); cache.clear(); return {};
   }
   if (message.type === 'private-create' && trusted) {
-    await chrome.tabs.create({ url: 'https://github.com/new?name=reacji-private&description=Private+reactions+from+reacji.to&visibility=private' }); return {};
+    await chrome.tabs.create({ url: 'https://github.com/new?name=reacji-to-private&description=Private+reactions+from+reacji.to&visibility=private' }); return {};
   }
   if (message.type === 'private-install' && trusted) {
     await chrome.tabs.create({ url: APP_INSTALL_URL }); return {};

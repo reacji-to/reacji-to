@@ -18,7 +18,7 @@ test('profile resolves renamed handle by numeric ID and never reads private data
   });
   const html = await res.text();
   assert.equal(res.status, 200); assert.match(html, /@renamed/); assert.match(html, /1 public reaction/); assert.match(html, /https:\/\/x.com\/i\/status\/123456789/); assert.doesNotMatch(html, /evil.test|<script>/);
-  assert.equal(calls[1], 'https://raw.githubusercontent.com/mrjf/dev-null-reactions/main/profiles/42.json');
+  assert.equal(calls[1], 'https://raw.githubusercontent.com/reacji-to/reacji-to/main/profiles/42.json');
 });
 test('profile distinguishes missing data from a network error', async () => {
   for (const status of [404, 403]) {

@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>reacji.to · Connection</title><link rel="stylesheet" href="options.css"></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>reacji-to · Connection</title><link rel="stylesheet" href="options.css"></head>
 <body><main>
-<a class="brand" href="https://reacji.to/" target="_blank" rel="noopener"><img src="logo.svg" width="36" height="36" alt="">reacji.to</a>
+<a class="brand" href="https://reacji.to/" target="_blank" rel="noopener"><img src="logo.svg" width="36" height="36" alt="">reacji-to</a>
 <h1>Your reactions. Your choice.</h1>
 <p class="intro">Any emoji on dev-null, X, and LinkedIn. Keep it private or share it on your reacji.to profile.</p>
 <section aria-labelledby="connection-title">
@@ -11,7 +11,7 @@
 <p class="help">Your token is stored inside this extension and sent only to GitHub and reacji.to to verify your account. GitHub authorization expires and renews automatically; the sites you react on never receive your token.</p>
 <div class="actions"><button type="button" id="oauth-connect">Connect GitHub</button><button type="button" id="disconnect" class="secondary" hidden>Disconnect</button></div>
 <div id="device" hidden>
-<p>Enter this code on GitHub, then approve <strong>dev-null reactions</strong>.</p>
+<p>Enter this code on GitHub, then approve <strong>reacji-to</strong>.</p>
 <div class="code-row"><output id="user-code" aria-label="GitHub authorization code"></output><button type="button" id="copy-code" class="secondary">Copy code</button></div>
 <div class="actions"><button type="button" id="open-github">Continue to GitHub ↗</button><button type="button" id="cancel" class="secondary">Cancel</button></div>
 <p class="help">Keep this settings tab open. It will connect automatically after you approve. Never approve a code you didn’t request.</p>
@@ -29,7 +29,7 @@
 </section>
 </section>
 <section aria-labelledby="how-title"><h2 id="how-title">What happens when you react</h2>
-<ol><li>Choose <strong>Public</strong> or <strong>Private</strong> in the emoji picker.</li><li>Your reaction is tied to your GitHub identity. On dev-null, your signed-in account must match.</li><li>The reacji.to Worker commits <code>data/[platform]/&lt;post-id&gt;.json</code> to the shared public repo or your selected private repo.</li><li>Public reactions appear on reacji.to/YOUR_GITHUB_HANDLE and in other users’ pickers.</li></ol>
+<ol><li>Choose <strong>Public</strong> or <strong>Private</strong> in the emoji picker.</li><li>Your reaction is tied to your GitHub identity. On dev-null, your signed-in account must match.</li><li>The reacji-to Worker commits <code>data/[platform]/&lt;post-id&gt;.json</code> to the shared public repo or your selected private repo.</li><li>Public reactions appear on reacji.to/YOUR_GITHUB_HANDLE and in other users’ pickers.</li></ol>
 <p>One reaction per account per post in each visibility mode. Public and Private are separate; switching does not move or erase an existing reaction. Pick another emoji to change it, or choose your current reaction again to remove it.</p>
 <p>Public reactions and their history are public. Private reactions stay in your private GitHub repo; its collaborators, GitHub, and the app service can access them. They never contribute to public counts. Removing a reaction updates current data, but does not erase Git history.</p>
 <a id="repository" target="_blank" rel="noopener">View the repository ↗</a>

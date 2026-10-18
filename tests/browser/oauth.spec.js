@@ -39,7 +39,7 @@ test('real extension completes device OAuth, resumes after reload, and submits w
       if (new URL(route.request().url()).pathname === '/users/other') return route.fulfill({ json: { id: 99, login: 'other' } });
       if (new URL(route.request().url()).pathname === '/user/installations') return route.fulfill({ json: { installations: [{ id: 55 }] } });
       if (new URL(route.request().url()).pathname === '/user/installations/55/repositories') return route.fulfill({ json: { repositories: [
-        { id: 77, full_name: 'octocat/reacji-private', private: true, owner: { id: 42 }, permissions: { push: true } },
+        { id: 77, full_name: 'octocat/reacji-to-private', private: true, owner: { id: 42 }, permissions: { push: true } },
         { id: 78, full_name: 'octocat/public', private: false, owner: { id: 42 }, permissions: { push: true } },
         { id: 79, full_name: 'friend/private', private: true, owner: { id: 99 }, permissions: { push: true } },
       ] } });
@@ -100,7 +100,7 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     await page.goto(url);
     await page.getByRole('button', { name: 'Refresh repositories', exact: true }).click();
     await expect(page.getByLabel('Private repository').locator('option')).toHaveCount(2);
-    await page.getByLabel('Private repository').selectOption('octocat/reacji-private');
+    await page.getByLabel('Private repository').selectOption('octocat/reacji-to-private');
     await page.getByRole('button', { name: 'Use this repository', exact: true }).click();
     await expect(page.getByText('Private reactions are ready.', { exact: false })).toBeVisible();
     await page.goto('https://dev-null.sh/');
@@ -108,7 +108,7 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     await page.getByRole('button', { name: 'Private', exact: true }).click();
     await page.getByRole('searchbox').fill('❤️'); await page.getByRole('button', { name: 'red heart', exact: true }).click();
     await expect(page.getByRole('button', { name: /Private: ❤️, 1 reaction/ }).first()).toBeVisible();
-    expect(submissions[1].repository).toBe('octocat/reacji-private');
+    expect(submissions[1].repository).toBe('octocat/reacji-to-private');
     expect(submissions[1].visibility).toBe('private');
     await context.route('https://x.com/**', route => route.fulfill({ contentType: 'text/html', body: '<meta charset="utf-8"><article data-testid="tweet"><a href="/person/status/123456789"><time>Today</time></a><div role="group"><button data-testid="reply">Reply</button></div></article>' }));
     siteUsername = null; // X reactions must not require a dev-null session.

@@ -39,7 +39,7 @@ export default {
     const allowed = /^chrome-extension:\/\/[a-p]{32}$/.test(origin);
     const cors = allowed ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' } : {};
     const url = new URL(request.url);
-    if (url.pathname === '/health' && request.method === 'GET') return json({ service: 'reacji', configured: Boolean(env.GITHUB_APP_PRIVATE_KEY) });
+    if (url.pathname === '/health' && request.method === 'GET') return json({ service: 'reacji-to', configured: Boolean(env.GITHUB_APP_PRIVATE_KEY) });
     if (request.method === 'GET') return publicPage(url, env);
     if (origin && !allowed) return json({ error: 'Unsupported origin.' }, 403);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });

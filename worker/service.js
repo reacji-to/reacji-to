@@ -10,7 +10,7 @@ export const repoPattern = /^[a-z\d-]{1,39}\/[\w.-]{1,100}$/i;
 export function createService(env, fetcher = fetch) {
   const api = async (path, token, init = {}) => {
     const response = await fetcher(`https://api.github.com${path}`, {
-      ...init, headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'User-Agent': 'reacji-worker',
+      ...init, headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'User-Agent': 'reacji-to-worker',
         'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' }, redirect: 'error', signal: AbortSignal.timeout(20000),
     });
     if (!response.ok) throw new HttpError(response.status, response.status === 401 ? 'Reconnect GitHub in extension settings.' : `GitHub request failed (${response.status}). Check the selected repository and app installation.`);

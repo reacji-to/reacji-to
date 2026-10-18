@@ -24,7 +24,7 @@ const element = (tag, attributes = {}, text) => {
   return el;
 };
 function host() {
-  const el = element('devnull-reactions');
+  const el = element('reacji-to-reactions');
   const shadow = el.attachShadow({ mode: 'open' });
   shadow.adoptedStyleSheets = [sheet];
   theme(el);
@@ -128,7 +128,7 @@ async function openPicker(record) {
   const head = element('div', { class: 'head' });
   const close = element('button', { class: 'close', type: 'button', 'aria-label': 'Close reactions' }, '×');
   close.addEventListener('click', closePicker);
-  head.append(element('strong', {}, 'reacji.to'), close);
+  head.append(element('strong', {}, 'reacji-to'), close);
   const controls = element('div', { class: 'controls' });
   const search = element('input', { class: 'search', type: 'search', placeholder: 'Search or paste any emoji', 'aria-label': 'Search or paste any emoji' });
   const category = element('select', { class: 'category', 'aria-label': 'Emoji category' });
@@ -241,8 +241,8 @@ function scan() {
     if (!inline) { el.style.display = 'block'; el.style.padding = '4px 0 8px'; }
     const bar = element('span', { class: 'bar' });
     const button = element('button', { class: 'trigger', type: 'button', 'aria-label': 'React with an emoji', 'aria-haspopup': 'dialog', 'aria-expanded': 'false' });
-    button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M8.5 9h.01M15.5 9h.01"/></svg>';
-    if (!inline) button.append(document.createTextNode('reacji.to'));
+    button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><ellipse cx="6.5" cy="12" rx="4.5" ry="7.5"/><ellipse cx="17.5" cy="12" rx="4.5" ry="7.5"/><ellipse cx="5.5" cy="13" rx="1.8" ry="3.2" fill="currentColor" stroke="none"/><ellipse cx="16.5" cy="13" rx="1.8" ry="3.2" fill="currentColor" stroke="none"/></svg>';
+    if (!inline) button.append(document.createTextNode('reacji-to'));
     const chips = element('span', { class: 'bar' });
     bar.append(button, chips); shadow.append(bar); anchor.after(el);
     const record = { id: postKey(post), post, article, anchor, el, button, chips, data: null, privateData: null, visibility: 'public', visible: false };

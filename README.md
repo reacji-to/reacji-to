@@ -1,21 +1,21 @@
-# reacji.to
+# reacji-to
 
-A Chrome / Helium extension that adds a smiley beside the star on [dev-null.sh](https://dev-null.sh/) and under posts on X and LinkedIn. Search or paste any of 3,944 Unicode 17 emoji, including skin tones, flags, and families.
+A Chrome / Helium extension that adds an eyes icon beside the star on [dev-null.sh](https://dev-null.sh/) and under posts on X and LinkedIn. Search or paste any of 3,944 Unicode 17 emoji, including skin tones, flags, and families.
 
-The picker has a **Public / Private** switcher. Public reactions live in `mrjf/dev-null-reactions`. Private reactions live in a private repository you own and choose after GitHub sign-in. Each post has one JSON file per repository: `data/<uuid>.json` for dev-null, `data/x/<id>.json` for X, and `data/linkedin/<activity-id>.json` for LinkedIn. Every change creates a Git commit directly; there are no reaction issues, GitHub Actions queues, or GitHub Pages.
+The picker has a **Public / Private** switcher. Public reactions will live in `reacji-to/reacji-to`. Private reactions live in a private repository you own and choose after GitHub sign-in. Each post has one JSON file per repository: `data/<uuid>.json` for dev-null, `data/x/<id>.json` for X, and `data/linkedin/<activity-id>.json` for LinkedIn. Every change creates a Git commit directly; there are no reaction issues, GitHub Actions queues, or GitHub Pages.
 
 ## Deployment status
 
-The Worker and public profile pages are deployed on reacji.to. Reaction writes still require the owner to install the GitHub App on the shared repo and supply its private key as a Worker secret. `/health` reports whether that key is present. The new extension is packaged locally; v0.1.0 is the older issue-queue release.
+The current site is deployed at reacji.to. Migration to the new `reacji-to` GitHub organization, repository, and GitHub App is pending organization creation. The new build deliberately disables the previous personal-account app integration. After provisioning, set the new public IDs, install the app only on the reaction repo, and supply its private key as a Worker secret. `/health` reports whether that key is present.
 
 ## Install and connect
 
-1. Download and extract the extension ZIP from [Releases](https://github.com/mrjf/dev-null-reactions/releases).
+1. Download and extract the extension ZIP from [Releases](https://github.com/reacji-to/reacji-to/releases).
 2. Open `chrome://extensions` or `helium://extensions`, enable Developer mode, choose Load unpacked, and select the extracted folder. For local development, select `dist/` after building.
-3. Open the extension settings and click **Connect GitHub**. Enter the displayed code at GitHub and authorize **dev-null reactions**.
+3. Open the extension settings and click **Connect GitHub**. Enter the displayed code at GitHub and authorize **reacji-to**.
 4. For Private mode, choose **Choose repositories on GitHub** and install the app using **Only select repositories**. Select your private reactions repository. Alternatively, **Create a new private repo** opens GitHub’s repository form; select Private, create it, then install the app on that repo.
 5. Return to extension settings, refresh the repository list, choose your private repo, and save. Only private repos personally owned by the connected GitHub account and available to the app are listed.
-6. Reload dev-null, X, or LinkedIn. Open the smiley, select **Public** or **Private**, and choose an emoji.
+6. Reload dev-null, X, or LinkedIn. Open the eyes icon, select **Public** or **Private**, and choose an emoji.
 
 All three sites use your GitHub identity. On dev-null, the extension checks the currently signed-in dev-null account before every write and private read. GitHub must be connected as the same account. Signed-out or mismatched accounts are blocked. Public counts can be read without connecting.
 
@@ -28,7 +28,7 @@ Unpacked extensions do not auto-update. Replace the extension files and click Re
 ```text
 picker → fresh dev-null session check → GitHub identity comparison
                                       ↓
-                         reacji.to Cloudflare Worker
+                         reacji-to Cloudflare Worker
                                       ↓
                     GitHub App installation token
                     restricted to one selected repo

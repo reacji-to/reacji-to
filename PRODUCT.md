@@ -9,7 +9,7 @@ web
 People reading dev-null.sh in Chrome or Helium who want to react with any emoji.
 
 ## Product Purpose
-Add a smiley beside each commit's star, open an emoji picker, and share reactions with other extension users.
+Add an eyes icon beside each commit's star, open an emoji picker, and share reactions with other extension users.
 
 ## Capabilities and Constraints
 User requested commit-backed persistence and delegated repository architecture. Upstream posts are database records, not Git commits. The user explicitly rejected Pages: store one file per post in a public repository and fetch the committed data from GitHub.
@@ -31,5 +31,8 @@ Picker switch labels must be exactly Public / Private. Public uses the shared re
 Public and private records are separate and have separate counts. The picker must explicitly indicate if a separate public reaction remains when switching to Private. Never fall back to public submission on a private error. No raw public URLs or persistent storage for private documents.
 
 
-## reacji.to expansion
-Brand: reacji.to. Add the Public / Private picker under X and LinkedIn posts while retaining dev-null. Identity remains GitHub on every platform; dev-null additionally enforces matching signed-in accounts. Public profile /GITHUB_HANDLE lists current public reactions from all platforms. Private reactions never enter this profile. Preserve the existing restrained native interface; logo is a compact lime smiley with dark ink, readable at 16px. A public write atomically updates the one-per-post data file and one per-user profile index in a single commit.
+## reacji-to expansion
+Brand: reacji-to. Add the Public / Private picker under X and LinkedIn posts while retaining dev-null. Identity remains GitHub on every platform; dev-null additionally enforces matching signed-in accounts. Public profile /GITHUB_HANDLE lists current public reactions from all platforms. Private reactions never enter this profile. Preserve the existing restrained native interface; logo is a compact pair of sideways-looking emoji-inspired eyes on lime with dark ink, readable at 16px. A public write atomically updates the one-per-post data file and one per-user profile index in a single commit.
+
+## Organization and naming decision
+The user chose the eyes emoji as the logo direction and reacji-to as the consistent app, organization, repository and Worker name. The public domain remains reacji.to. The target GitHub repository is reacji-to/reacji-to, owned by the new organization, not the developer’s personal account. New credentials and the numeric repository ID must be configured only after provisioning.
