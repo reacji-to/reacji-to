@@ -8,7 +8,7 @@
   ],
   "workers_dev": true,
   "vars": {
-    "GITHUB_APP_ID": ""
+    "GITHUB_APP_ID": "5371565"
   },
   "durable_objects": {
     "bindings": [

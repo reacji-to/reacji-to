@@ -2,11 +2,11 @@
 
 A Chrome / Helium extension that adds an eyes icon beside the star on [dev-null.sh](https://dev-null.sh/) and under posts on X and LinkedIn. Search or paste any of 3,944 Unicode 17 emoji, including skin tones, flags, and families.
 
-The picker has a **Public / Private** switcher. Public reactions will live in `reacji-to/reacji-to`. Private reactions live in a private repository you own and choose after GitHub sign-in. Each post has one JSON file per repository: `data/<uuid>.json` for dev-null, `data/x/<id>.json` for X, and `data/linkedin/<activity-id>.json` for LinkedIn. Every change creates a Git commit directly; there are no reaction issues, GitHub Actions queues, or GitHub Pages.
+The picker has a **Public / Private** switcher. Public reactions live in `reacji-to/reacji-to`. Private reactions live in a private repository you own and choose after GitHub sign-in. Each post has one JSON file per repository: `data/<uuid>.json` for dev-null, `data/x/<id>.json` for X, and `data/linkedin/<activity-id>.json` for LinkedIn. Every change creates a Git commit directly; there are no reaction issues, GitHub Actions queues, or GitHub Pages.
 
 ## Deployment status
 
-The current site is deployed at reacji.to. Migration to the new `reacji-to` GitHub organization, repository, and GitHub App is pending organization creation. The new build deliberately disables the previous personal-account app integration. After provisioning, set the new public IDs, install the app only on the reaction repo, and supply its private key as a Worker secret. `/health` reports whether that key is present.
+The branded site and `reacji-to` Cloudflare Worker are deployed at reacji.to. Source and public reaction storage are in the `reacji-to/reacji-to` organization repository. The organization-owned GitHub App is registered with Device Flow enabled, and its credential is stored as a Worker secret. The selected-repository installation is the remaining activation step. `/health` reports credential presence, not installation access or a verified commit.
 
 ## Install and connect
 

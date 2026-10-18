@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-18T18:34:34.187430+00:00",
+  "generatedAt": "2026-10-18T18:50:16.241127+00:00",
   "title": "Design System: reacji-to",
   "extensions": {
     "colorMeta": {
@@ -441,9 +441,9 @@
   ],
   "narrative": {
     "northStar": "A small sideways glance",
-    "overview": "The existing interface is restrained, readable, and close to the host site's native controls. The approved identity adds a compact pair of emoji-inspired, sideways-looking eyes on lime and the reacji-to wordmark. The eyes are the expressive detail; ordinary controls, separators, and type carry the rest of the interface. The app name and wordmark are reacji-to; the public domain remains reacji.to.\n\nThis document describes the shipped implementation, including its inherited differences between the embedded picker, connection settings, and public website. The north star is a descriptive shorthand for that implementation, not a new visual direction. Evidence: `src/content.css`, `src/content.js`, `src/options.css`, `src/options.html`, `public/logo.svg`, and `worker/pages.js`; the desktop and mobile profile captures in `.impeccable/review/` and the picker capture in `artifacts/x-picker.png` corroborate the current identity and layouts.",
+    "overview": "The existing interface is restrained, readable, and close to the host site's native controls. The approved identity adds a compact pair of photorealistic, emoji-inspired eyes looking left, with glossy off-white eyeballs, vivid blue irises, black pupils, and a transparent background, alongside the reacji-to wordmark. The eyes are the expressive detail; ordinary controls, separators, and type carry the rest of the interface. The app name and wordmark are reacji-to; the public domain remains reacji.to.\n\nThis document describes the shipped implementation, including its inherited differences between the embedded picker, connection settings, and public website. The north star is a descriptive shorthand for that implementation, not a new visual direction. Evidence: `src/content.css`, `src/content.js`, `src/options.css`, `src/options.html`, `public/logo-source.png`, `public/logo.png`, `src/brand.js`, and `worker/pages.js`; the desktop and mobile profile captures in `.impeccable/review/` the picker capture in `artifacts/x-picker.png`, and the light/dark size sheet in `artifacts/logo-sizes.png` corroborate the current identity and layouts.",
     "keyCharacteristics": [
-      "Compact eyes branding with white ovals, dark outlines and pupils, and a lime tile.",
+      "Compact photorealistic eyes with glossy off-white ovals, vivid blue irises, black pupils, and transparency.",
       "System sans typography, restrained weights, and readable identifiers.",
       "Flat neutral surfaces with thin separators and gently rounded controls.",
       "Host-aware picker colors, automatic light/dark settings and public pages.",
@@ -457,7 +457,7 @@
       }
     ],
     "dos": [
-      "**Do** preserve the compact eyes-on-lime asset and reacji-to wordmark.",
+      "**Do** preserve the transparent photorealistic blue-eyed asset and reacji-to wordmark.",
       "**Do** preserve the embedded picker's inherited host colors and native-sized controls.",
       "**Do** use ruled profile rows, wrapping identifiers, and visible keyboard focus.",
       "**Do** keep Public / Private labels and their explanatory state text explicit.",

@@ -5,6 +5,6 @@ await mkdir('dist', { recursive: true });
 await build({ entryPoints: ['src/content.js', 'src/options.js'], bundle: true, outdir: 'dist', format: 'iife', target: 'chrome120', loader: { '.css': 'text' } });
 await build({ entryPoints: ['src/background.js'], bundle: true, outdir: 'dist', format: 'esm', target: 'chrome120' });
 for (const file of ['options.html', 'options.css']) await copyFile(`src/${file}`, `dist/${file}`);
-for (const file of ['logo.svg', 'icon-16.png', 'icon-32.png', 'icon-48.png', 'icon-128.png']) await copyFile(`public/${file}`, `dist/${file}`);
+for (const file of ['logo.png', 'icon-16.png', 'icon-32.png', 'icon-48.png', 'icon-128.png']) await copyFile(`public/${file}`, `dist/${file}`);
 await copyFile('manifest.json', 'dist/manifest.json');
 console.log('Built extension in dist/');

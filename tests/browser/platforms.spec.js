@@ -24,7 +24,7 @@ test('public profile filters, long handles, mobile, and empty states', async ({p
   await mkdir('.impeccable/review',{recursive:true});
   await page.route('https://reacji.to/**', async route => {
     const response = await publicPage(new URL(route.request().url()),{},async url=>url.includes('/users/')?Response.json({id:42,login:'a-very-long-github-handle-for-a-profile'}):Response.json({version:1,id:42,reactions:Object.fromEntries(['x','linkedin','devnull'].map((platform,i)=>[platform,{post:{platform,id:platform==='devnull'?'01a14f9d-76a7-72d9-a92d-48ae9ea999cb':'123456789',author:'octocat'},emoji:['🚀','💡','👀'][i],at:'2026-10-18T00:00:00Z'}]))}));
-    await route.fulfill({status:response.status,contentType:response.headers.get('content-type'),body:await response.text()});
+    await route.fulfill({status:response.status,contentType:response.headers.get('content-type'),body:Buffer.from(await response.arrayBuffer())});
   });
   await page.setViewportSize({width:1440,height:1000}); await page.goto('https://reacji.to/octocat');
   await expect(page.locator('.feed li')).toHaveCount(3); await page.screenshot({path:'.impeccable/review/desktop.png',fullPage:true});

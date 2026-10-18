@@ -1,3 +1,4 @@
+import { pickerLogo } from './brand.js';
 import { discoverPosts, platformFor } from './adapters.js';
 import { postKey } from './posts.js';
 import css from './content.css';
@@ -241,7 +242,7 @@ function scan() {
     if (!inline) { el.style.display = 'block'; el.style.padding = '4px 0 8px'; }
     const bar = element('span', { class: 'bar' });
     const button = element('button', { class: 'trigger', type: 'button', 'aria-label': 'React with an emoji', 'aria-haspopup': 'dialog', 'aria-expanded': 'false' });
-    button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><ellipse cx="6.5" cy="12" rx="4.5" ry="7.5"/><ellipse cx="17.5" cy="12" rx="4.5" ry="7.5"/><ellipse cx="5.5" cy="13" rx="1.8" ry="3.2" fill="currentColor" stroke="none"/><ellipse cx="16.5" cy="13" rx="1.8" ry="3.2" fill="currentColor" stroke="none"/></svg>';
+    button.append(element('img', { src: pickerLogo, width: 16, height: 16, alt: '', 'aria-hidden': 'true' }));
     if (!inline) button.append(document.createTextNode('reacji-to'));
     const chips = element('span', { class: 'bar' });
     bar.append(button, chips); shadow.append(bar); anchor.after(el);

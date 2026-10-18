@@ -32,7 +32,7 @@ Public and private records are separate and have separate counts. The picker mus
 
 
 ## reacji-to expansion
-Brand: reacji-to. Add the Public / Private picker under X and LinkedIn posts while retaining dev-null. Identity remains GitHub on every platform; dev-null additionally enforces matching signed-in accounts. Public profile /GITHUB_HANDLE lists current public reactions from all platforms. Private reactions never enter this profile. Preserve the existing restrained native interface; logo is a compact pair of sideways-looking emoji-inspired eyes on lime with dark ink, readable at 16px. A public write atomically updates the one-per-post data file and one per-user profile index in a single commit.
+Brand: reacji-to. Add the Public / Private picker under X and LinkedIn posts while retaining dev-null. Identity remains GitHub on every platform; dev-null additionally enforces matching signed-in accounts. Public profile /GITHUB_HANDLE lists current public reactions from all platforms. Private reactions never enter this profile. Preserve the existing restrained native interface; logo is a photorealistic pair of sideways-looking emoji-shaped eyes with vivid blue irises, black pupils, and a transparent background, readable at 16px. A public write atomically updates the one-per-post data file and one per-user profile index in a single commit.
 
 ## Organization and naming decision
 The user chose the eyes emoji as the logo direction and reacji-to as the consistent app, organization, repository and Worker name. The public domain remains reacji.to. The target GitHub repository is reacji-to/reacji-to, owned by the new organization, not the developer’s personal account. New credentials and the numeric repository ID must be configured only after provisioning.
