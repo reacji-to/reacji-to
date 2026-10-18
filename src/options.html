@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>/dev/null reactions · Connection</title><link rel="stylesheet" href="options.css"></head>
+<body><main>
+<a class="back" href="https://dev-null.sh/" target="_blank" rel="noopener">← /dev/null</a>
+<h1>Any emoji. One reaction.</h1>
+<p class="intro">A smiley beside every star. Your reactions live in a public Git repository, shared with everyone using this extension.</p>
+<section aria-labelledby="connection-title">
+<h2 id="connection-title">Connect to GitHub</h2>
+<p>You can react without a token: choose an emoji, then submit the prefilled issue in GitHub. For one-click reactions, connect a personal access token.</p>
+<form id="connect">
+<label for="token">GitHub personal access token</label>
+<input id="token" name="token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your GitHub token" required>
+<p class="help">For this shared public repository, use a classic token with <code>public_repo</code>. That scope also grants access to your other public repositories. Fine-grained tokens only work if they have Issues: write access to this repository.</p>
+<a href="https://github.com/settings/tokens/new?scopes=public_repo&amp;description=dev-null-reactions" target="_blank" rel="noopener noreferrer">Create a classic token on GitHub ↗</a>
+<label class="checkbox"><input id="remember" type="checkbox"> Keep connected after restarting the browser</label>
+<p class="help">Otherwise the token lasts for this browser session. It is accessible only to the extension and sent only to GitHub, never to dev-null.sh.</p>
+<div class="actions"><button type="submit" id="save">Connect GitHub</button><button type="button" id="disconnect" class="secondary" hidden>Disconnect</button></div>
+</form>
+<p id="status" role="status" aria-live="polite"></p>
+</section>
+<section aria-labelledby="how-title"><h2 id="how-title">What happens when you react</h2>
+<ol><li>The extension opens a reaction issue under your GitHub account.</li><li>GitHub Actions updates <code>data/&lt;post-id&gt;.json</code> and creates a commit.</li><li>Other extension users fetch the file directly from GitHub.</li></ol>
+<p>One reaction per account per commit. Pick another to change it, or choose your current reaction again to remove it. GitHub processing and caching can delay shared counts.</p>
+<p>Reactions, usernames, and submissions are public. Removing a reaction updates the counts; the previous reaction remains in Git history and its issue.</p>
+<a id="repository" target="_blank" rel="noopener">View the repository ↗</a>
+</section>
+<footer>Independent extension. Not affiliated with /dev/null or GitHub.</footer>
+</main><script src="options.js"></script></body></html>

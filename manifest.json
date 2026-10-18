@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "/dev/null reactions",
+  "version": "0.1.0",
+  "description": "React to dev-null.sh commits with any emoji. Shared reactions, recorded in Git.",
+  "minimum_chrome_version": "120",
+  "permissions": ["storage"],
+  "host_permissions": ["https://api.github.com/*", "https://raw.githubusercontent.com/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [{ "matches": ["https://dev-null.sh/*"], "js": ["content.js"], "run_at": "document_idle" }],
+  "action": { "default_title": "/dev/null reactions · settings" },
+  "options_ui": { "page": "options.html", "open_in_tab": true }
+}
