@@ -1,4 +1,5 @@
 import { postRef } from './posts.js';
+import { placementRef } from './web.js';
 import emojis from './emoji.json' with { type: 'json' };
 
 // Unicode's fully-qualified sequences include flags, ZWJ families, and skin tones.
@@ -13,7 +14,7 @@ export function parseReaction(value) {
   if (!value || value.version !== 1) throw new Error('Invalid post reference.');
   const post = postRef(value.post || value.commit);
   if (value.emoji !== null && !emojiValue(value.emoji)) throw new Error('Choose one Unicode emoji.');
-  return { version: 1, commit: post.id, ...(value.post ? { post } : {}), emoji: value.emoji === null ? null : emojiValue(value.emoji) };
+  return { version: 1, commit: post.id, ...(value.post ? { post } : {}), ...(post.platform === 'web' ? { placement: placementRef(value.placement) } : {}), emoji: value.emoji === null ? null : emojiValue(value.emoji) };
 }
 export function summarize(document, actorId) {
   const groups = new Map();

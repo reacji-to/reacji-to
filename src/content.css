@@ -11,3 +11,4 @@
 .visibility button { flex:1; padding:6px 12px; border:0; border-radius:4px; background:transparent; color:inherit; cursor:pointer; font:inherit; }
 .visibility button[aria-pressed="true"] { background:#7772; font-weight:600; box-shadow:0 1px 2px #0001; }
 .scope-note { margin:8px 14px; font-size:11px; line-height:1.45; opacity:.75; }
+.pin{background:var(--rx-bg);color:var(--rx-ink);border:1px solid var(--rx-line);border-radius:6px;flex-wrap:nowrap;padding:1px;max-width:min(240px,calc(100vw - 16px));position:relative}.pin::before{content:"";position:absolute;left:var(--anchor-x,50%);top:-8px;height:7px;border-left:1px solid var(--rx-line)}:host([data-above]) .pin::before{top:auto;bottom:-8px}.pin .bar{max-height:84px;overflow:auto;scrollbar-width:thin}.pin .trigger{padding:4px}.page-target{overflow-wrap:anywhere;max-height:64px;overflow:auto}

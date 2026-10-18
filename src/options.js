@@ -42,6 +42,8 @@ async function poll(id) {
 async function refresh() {
   try {
     const state = await send({ type: 'status' });
+    document.querySelector('#audience').value = state.audience || 'everyone';
+    document.querySelector('#audience-status').textContent = state.followingError || (state.audience === 'following' ? `Showing your reactions and ${state.followingCount ?? 0} people you follow.` : 'Showing everyone’s public reactions.');
     document.querySelector('#private-setup').hidden = !state.connected;
     document.querySelector('#private-status').textContent = state.privateRepository ? `Using ${state.privateRepository}.` : 'Choose a repository to enable Private reactions.';
     disconnect.hidden = !state.connected && !state.actor;
@@ -76,6 +78,17 @@ disconnect.addEventListener('click', async () => {
   catch (error) { report(error.message, true); }
 });
 refresh();
+
+const audienceStatus = document.querySelector('#audience-status');
+document.querySelector('#audience').addEventListener('change', async event => {
+  try { const result = await send({ type: 'audience-save', audience: event.target.value }); audienceStatus.textContent = result.error || 'Saved. Open pages refresh within 30 seconds.'; }
+  catch (error) { audienceStatus.textContent = error.message; }
+});
+document.querySelector('#following-refresh').addEventListener('click', async () => {
+  audienceStatus.textContent = 'Loading your dev-null following list…';
+  try { const result = await send({ type: 'following-refresh' }); audienceStatus.textContent = `Loaded ${result.count} people you follow. Open pages refresh within 30 seconds.`; }
+  catch (error) { audienceStatus.textContent = error.message; }
+});
 
 const privateStatus = document.querySelector('#private-status');
 const repositorySelect = document.querySelector('#private-repository');

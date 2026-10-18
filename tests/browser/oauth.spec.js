@@ -55,7 +55,7 @@ test('real extension completes device OAuth, resumes after reload, and submits w
       return route.fulfill({ json: { actor: { id: 42, login: 'octocat' }, document: { version: 1, commit: body.event.commit, users: { 42: { login: 'octocat', emoji: body.event.emoji } } } } });
     });
     await context.route('https://raw.githubusercontent.com/**', route => route.fulfill({ status: 404, body: '' }));
-    await context.route('https://dev-null.sh/**', route => route.request().headers()['x-inertia'] ? route.fulfill({ json: { props: { auth: { user: siteUsername ? { username: siteUsername } : null } } } }) : route.fulfill({ path: 'fixtures/feed.html', contentType: 'text/html' }));
+    await context.route('https://dev-null.sh/**', route => new URL(route.request().url()).pathname === '/@octocat/following' ? route.fulfill({contentType:'text/html',body:`<script data-page="app" type="application/json">${JSON.stringify({component:'user/connections',props:{type:'following',user:{username:'octocat'},users:{data:[{username:'friend',avatar_url:'https://avatars.githubusercontent.com/u/99?v=4'}],next_page_url:null}}})}</script>`}) : route.request().headers()['x-inertia'] ? route.fulfill({ json: { props: { auth: { user: siteUsername ? { username: siteUsername } : null } } } }) : route.fulfill({ path: 'fixtures/feed.html', contentType: 'text/html' }));
     const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
     // Chrome-created tabs can navigate before Playwright attaches routing. Keep this test offline.
     await worker.evaluate(() => {
@@ -78,6 +78,20 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     approved = true;
     await expect(page.getByText('Connected as @octocat.', { exact: false })).toBeVisible({ timeout: 12000 });
     await expect(page.getByLabel('GitHub authorization code')).toBeHidden();
+    await page.getByLabel('Public reactions',{exact:true}).selectOption('following');
+    await expect(page.locator('#audience-status')).toContainText('Saved.');
+    await page.reload();
+    await expect(page.getByLabel('Public reactions',{exact:true})).toHaveValue('following');
+    await expect(page.locator('#audience-status')).toContainText('1 people you follow');
+    await page.getByRole('button',{name:'Refresh following list',exact:true}).click();
+    await expect(page.locator('#audience-status')).toContainText('Loaded 1 people');
+    await page.screenshot({path:'.impeccable/review/settings-desktop.png',fullPage:true});
+    await page.setViewportSize({width:390,height:844});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await page.screenshot({path:'.impeccable/review/settings-mobile.png',fullPage:true});
+    await page.setViewportSize({width:1280,height:900});
+    await page.getByLabel('Public reactions',{exact:true}).selectOption('everyone');
+
     await page.goto('https://dev-null.sh/');
     await page.getByRole('button', { name: 'React with an emoji', exact: true }).first().click();
     await page.getByRole('searchbox').fill('🚀'); await page.getByRole('button', { name: 'rocket', exact: true }).click();

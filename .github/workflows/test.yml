@@ -1,7 +1,6 @@
 name: Test extension
 on:
   push:
-    paths-ignore: ['data/**', 'profiles/**']
   pull_request:
 permissions:
   contents: read

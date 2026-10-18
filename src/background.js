@@ -3,6 +3,8 @@ import { postRef, postKey, postPath, emptyPost, validDocument } from './posts.js
 import { platformFor } from './adapters.js';
 import { parseReaction, COMMIT_ID } from './protocol.js';
 import { createAuth } from './auth.js';
+import { canonicalUrl, verifyPagePost } from './web.js';
+import { loadFollowing, filterReactions } from './following.js';
 
 // Tokens are never exposed through chrome.storage to content scripts.
 const ready = Promise.all([
@@ -13,6 +15,34 @@ const cache = new Map();
 const reads = new Map();
 const auth = createAuth({ local: chrome.storage.local, session: chrome.storage.session, clientId: GITHUB_APP_CLIENT_ID });
 let mutation = Promise.resolve();
+const followingLoads = new Map();
+async function audienceState(force = false) {
+  const { audience = 'everyone', followingCache = {} } = await chrome.storage.local.get(['audience', 'followingCache']);
+  const { actor } = await auth.status();
+  if (audience !== 'following' && !force) return { audience, actor };
+  if (!actor) return { audience, actor, followingError: 'Connect GitHub to show people you follow on dev-null.' };
+  let following = followingCache[actor.id];
+  if (force || !following || following.until < Date.now() || following.login !== actor.login) {
+    try {
+      if (!followingLoads.has(actor.id)) followingLoads.set(actor.id, loadFollowing(actor.login).then(async data => {
+        const value = { ...data, login: actor.login, until: Date.now() + 300000 };
+        // Only the active account's public following list is cached.
+        await chrome.storage.local.set({ followingCache: { [actor.id]: value } }); return value;
+      }).finally(() => followingLoads.delete(actor.id)));
+      following = await followingLoads.get(actor.id);
+    } catch (error) { return { audience, actor, followingError: error.message }; }
+  }
+  return { audience, actor, following };
+}
+async function visibleDocument(document) {
+  const state = await audienceState();
+  return filterReactions(document, state.actor, state.audience, state.following);
+}
+function senderPost(value, site, platform) {
+  const post = postRef(value);
+  if (post.platform === 'web' ? canonicalUrl(site.href) !== post.url : post.platform !== platform) throw new Error('Reaction target does not match this page.');
+  return post;
+}
 const api = async (path, token, init = {}) => {
   const response = await fetch(`https://api.github.com${path}`, {
     ...init, headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28',
@@ -57,17 +87,29 @@ async function readCommit(value) {
 async function handle(message, sender) {
   await ready;
   const trusted = sender.url === chrome.runtime.getURL('options.html');
-  const site = sender.tab && new URL(sender.url);
-  const platform = site?.protocol === 'https:' && platformFor(site.hostname);
-  const content = Boolean(platform);
+  const site = sender.tab && sender.url ? new URL(sender.url) : null;
+  const platform = site && platformFor(site.hostname);
+  const content = Boolean(site && ['https:', 'http:'].includes(site.protocol));
   if (!trusted && !content) throw new Error('Unsupported sender.');
   if (message.type === 'status') {
     const state = await auth.status();
     if (!trusted) delete state.pending;
     const { privateRepositories = {} } = await chrome.storage.local.get('privateRepositories');
-    return { ...state, repository: REPOSITORY, privateRepository: privateRepositories[state.actor?.id] || null };
+    const view = await audienceState();
+    return { ...state, audience: view.audience, followingError: view.followingError, followingCount: view.following ? view.following.ids.length + view.following.logins.length : null, repository: REPOSITORY, privateRepository: privateRepositories[state.actor?.id] || null };
   }
   if (message.type === 'options') { await chrome.runtime.openOptionsPage(); return {}; }
+  if (message.type === 'audience-save' && trusted) {
+    if (!['everyone', 'following'].includes(message.audience)) throw new Error('Choose Everyone or Following on dev-null.');
+    await chrome.storage.local.set({ audience: message.audience });
+    const state = await audienceState();
+    return { audience: state.audience, error: state.followingError };
+  }
+  if (message.type === 'following-refresh' && trusted) {
+    const state = await audienceState(true);
+    if (state.followingError) throw new Error(state.followingError);
+    return { count: state.following.ids.length + state.following.logins.length };
+  }
   if (message.type === 'oauth-start' && trusted) return auth.start(message.remember);
   if (message.type === 'oauth-poll' && trusted) return auth.poll(message.id);
   if (message.type === 'oauth-cancel' && trusted) { await auth.cancel(); return {}; }
@@ -105,11 +147,15 @@ async function handle(message, sender) {
     await chrome.storage.local.set({ privateRepositories });
     return { repository: result.repository.name };
   }
-  if (message.type === 'read') return readCommit(message.post || message.commit);
+  if (message.type === 'read') {
+    const post = content ? senderPost(message.post || message.commit, site, platform) : postRef(message.post || message.commit);
+    await verifyPagePost(post);
+    return visibleDocument(await readCommit(post));
+  }
   if (message.type === 'private-read' || message.type === 'react') {
     if (!content) throw new Error('Reactions must come from a supported post.');
-    const post = postRef(message.type === 'react' ? message.event?.post || message.event?.commit : message.post || message.commit);
-    if (post.platform !== platform) throw new Error('Post platform does not match this page.');
+    const post = senderPost(message.type === 'react' ? message.event?.post || message.event?.commit : message.post || message.commit, site, platform);
+    await verifyPagePost(post);
     const token = await requireToken();
     const actor = await api('/user', token);
     if (platform === 'devnull') {
@@ -119,7 +165,7 @@ async function handle(message, sender) {
     }
     const { privateRepositories = {} } = await chrome.storage.local.get('privateRepositories');
     const repository = privateRepositories[actor.id];
-    if (message.type === 'private-read') return service('/v1/private/read', token, { username: message.username, repository, post });
+    if (message.type === 'private-read') return service('/v1/private/read', token, { username: message.username, githubId: message.githubId, repository, post });
     const event = parseReaction(message.event);
     if (!['public', 'private'].includes(message.visibility)) throw new Error('Choose Public or Private.');
     const result = await service('/v1/react', token, { event, visibility: message.visibility, username: message.username, githubId: message.githubId,
@@ -128,7 +174,7 @@ async function handle(message, sender) {
       cache.delete(postKey(post));
       if (result.document) cache.set(postKey(post), { value: result.document, until: Date.now() + 30000 });
     }
-    return { ...result, mode: 'committed' };
+    return { ...result, ...(result.document && message.visibility === 'public' ? { document: await visibleDocument(result.document) } : {}), mode: 'committed' };
   }
   throw new Error('Unsupported request.');
 }
@@ -139,3 +185,9 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   return true;
 });
 chrome.action.onClicked.addListener(() => chrome.runtime.openOptionsPage());
+const setupMenu = () => chrome.contextMenus.removeAll(() => chrome.contextMenus.create({ id: 'reacji-to-place', title: 'Place a reacji here', contexts: ['all'], documentUrlPatterns: ['http://*/*', 'https://*/*'] }));
+chrome.runtime.onInstalled.addListener(setupMenu);
+chrome.runtime.onStartup.addListener(setupMenu);
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === 'reacji-to-place' && tab?.id) chrome.tabs.sendMessage(tab.id, { type: 'place-reaction' }, { frameId: info.frameId || 0 }).catch(() => {});
+});

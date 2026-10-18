@@ -1,7 +1,7 @@
 {
   "name": "reacji-to",
-  "version": "0.2.0",
-  "description": "Public and private emoji reactions across dev-null, X and LinkedIn, recorded in Git.",
+  "version": "0.3.0",
+  "description": "Chrome and Helium extension for public and private emoji reactions anywhere on the web.",
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node --test tests/*.test.js",
@@ -15,8 +15,7 @@
   "devDependencies": {
     "@playwright/test": "^1.64.1",
     "esbuild": "^0.28.2",
-    "sharp": "^0.35.5",
-    "wrangler": "^4.151.1"
+    "sharp": "^0.35.5"
   },
   "private": true
 }

@@ -1,4 +1,4 @@
-# /dev/null reactions
+# reacji-to extension
 
 <!-- impeccable:product-schema 1 -->
 
@@ -6,33 +6,22 @@
 web
 
 ## Users
-People reading dev-null.sh in Chrome or Helium who want to react with any emoji.
+Chrome and Helium users who want to react to posts and page content using their GitHub identity.
 
-## Product Purpose
-Add an eyes icon beside each commit's star, open an emoji picker, and share reactions with other extension users.
+## Purpose
+Right-click any ordinary webpage and place an emoji reaction. Also provide the small eyes picker beside dev-null stars and under X/LinkedIn posts.
 
-## Capabilities and Constraints
-User requested commit-backed persistence and delegated repository architecture. Upstream posts are database records, not Git commits. The user explicitly rejected Pages: store one file per post in a public repository and fetch the committed data from GitHub.
+## Behavior
+The picker has exact Public / Private labels. Public reactions are shared and appear at reacji.to/GITHUB_HANDLE. Private reactions live in a personally owned private GitHub repository selected after GitHub device OAuth. Each reaction change is a direct Git commit. Public and Private are independent stores, and removed reactions remain in Git history.
 
-Confirmed: public emoji reactions beside each post's star, visible to other extension users, with a Git commit for each change. Implementation choices: one reaction per GitHub account per commit; selecting the same emoji removes it; reaction changes are public, including their Git history. UI inherits dev-null's existing light/dark interface. No modification of upstream stars or replies.
+The viewer can choose Everyone or People I follow on dev-null; their own reactions remain visible. This display filter does not make public reactions private.
 
-## Stack
-Delegated implementation: Manifest V3, bundled JavaScript/CSS, Unicode emoji data, GitHub Issues as authenticated event intake, GitHub Actions as the only repository writer, raw GitHub files for reads, a ZIP for installation.
+Webpage reactions save a URL and DOM placement with a short visible excerpt and relative position. Recover moved elements only when a confident match exists. Do not collect form-field values. Pages restricted by the browser are unsupported.
 
-## Authentication
-The user requested OAuth via a GitHub App instead of requiring a pasted token. Use GitHub's device authorization flow and automatic refresh, with no embedded client secret and Issues write permission only. The site's own OAuth is not exposed to extensions. App registration is an external prerequisite; manual token and issue submission remain fallbacks.
+## Identity and architecture
+GitHub OAuth identifies the user on every site. dev-null additionally checks the fresh signed-in site account before writes/private reads. A Cloudflare Worker verifies GitHub identity, validates paths, and commits with a token limited to one repo. The app requires Contents write and mandatory Metadata read, no Issues/Admin scopes.
 
-## Revised architecture and privacy (2026-10-18)
+Three MIT repositories: reacji-to/reacji-to contains this extension; reacji-to/reacji-to-web contains the website and Worker; reacji-to/reacji-to-data contains public reaction JSON and profile indexes. GitHub App access is only to the data repository and each user's explicitly selected private repo. No GitHub Pages or local production backend.
 
-User requires direct commits, no Issues queue. GitHub App Contents write only on selected repositories, mandatory Metadata read. A tiny Cloudflare Worker at reacji.to performs validated commits with installation credentials kept on the server. No local production service.
-
-Picker switch labels must be exactly Public / Private. Public uses the shared repo; Private uses a private, personally owned GitHub repo chosen after OAuth, with an option to create a new repo in GitHub’s own UI. Every write/private read checks current dev-null session username against the OAuth account using numeric GitHub identity. The backend cannot independently attest to the site session without upstream support; do not claim it can.
-
-Public and private records are separate and have separate counts. The picker must explicitly indicate if a separate public reaction remains when switching to Private. Never fall back to public submission on a private error. No raw public URLs or persistent storage for private documents.
-
-
-## reacji-to expansion
-Brand: reacji-to. Add the Public / Private picker under X and LinkedIn posts while retaining dev-null. Identity remains GitHub on every platform; dev-null additionally enforces matching signed-in accounts. Public profile /GITHUB_HANDLE lists current public reactions from all platforms. Private reactions never enter this profile. Preserve the existing restrained native interface; logo is a photorealistic pair of sideways-looking emoji-shaped eyes with vivid blue irises, black pupils, and a transparent background, readable at 16px. A public write atomically updates the one-per-post data file and one per-user profile index in a single commit.
-
-## Organization and naming decision
-The user chose the eyes emoji as the logo direction and reacji-to as the consistent app, organization, repository and Worker name. The public domain remains reacji.to. The target GitHub repository is reacji-to/reacji-to, owned by the new organization, not the developer’s personal account. New credentials and the numeric repository ID must be configured only after provisioning.
+## Brand and design
+Name: reacji-to. Domain: reacji.to. Logo: photorealistic emoji-shaped eyes looking sideways, vivid blue irises, black pupils, glossy white sclera, transparent background. Preserve the compact native picker and light/dark behavior. The website is maintained separately and uses a larger, playful version of this identity.

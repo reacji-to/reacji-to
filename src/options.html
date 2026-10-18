@@ -3,7 +3,14 @@
 <body><main>
 <a class="brand" href="https://reacji.to/" target="_blank" rel="noopener"><img src="logo.png" width="36" height="36" alt="">reacji-to</a>
 <h1>Your reactions. Your choice.</h1>
-<p class="intro">Any emoji on dev-null, X, and LinkedIn. Keep it private or share it on your reacji.to profile.</p>
+<p class="intro">Right-click anywhere on a webpage to place a reaction. Keep it private or share it on your reacji.to profile.</p>
+<section aria-labelledby="view-title"><h2 id="view-title">Whose reactions you see</h2>
+<label for="audience">Public reactions</label>
+<select id="audience"><option value="everyone">Everyone</option><option value="following">People I follow on dev-null</option></select>
+<p class="help">Your own reactions always stay visible. This filters what you see; your Public reactions remain public. The following list uses your connected GitHub handle and refreshes every five minutes.</p>
+<button type="button" class="secondary" id="following-refresh">Refresh following list</button>
+<p id="audience-status" role="status" aria-live="polite"></p>
+</section>
 <section aria-labelledby="connection-title">
 <h2 id="connection-title">Connect to GitHub</h2>
 <p>Connect once to react in one click. GitHub will show you a short code to approve—no personal access token to create or paste.</p>
@@ -29,7 +36,8 @@
 </section>
 </section>
 <section aria-labelledby="how-title"><h2 id="how-title">What happens when you react</h2>
-<ol><li>Choose <strong>Public</strong> or <strong>Private</strong> in the emoji picker.</li><li>Your reaction is tied to your GitHub identity. On dev-null, your signed-in account must match.</li><li>The reacji-to Worker commits <code>data/[platform]/&lt;post-id&gt;.json</code> to the shared public repo or your selected private repo.</li><li>Public reactions appear on reacji.to/YOUR_GITHUB_HANDLE and in other users’ pickers.</li></ol>
+<ol><li>Right-click page content and choose <strong>Place a reacji here</strong>, or use the eyes beside a post.</li><li>Choose <strong>Public</strong> or <strong>Private</strong> in the emoji picker.</li><li>Your reaction is tied to your GitHub identity. On dev-null, your signed-in account must match.</li><li>The Worker commits your emoji to the public data repo or your selected private repo. Web placements also save the page URL, element path, position, and a short visible text excerpt.</li><li>Public reactions appear on reacji.to/YOUR_GITHUB_HANDLE and on the page for other extension users.</li></ol>
+<p>Reactions reattach when their saved target can be matched. If a page changes too much, the pin stays hidden. Browser settings pages and other extension-restricted pages cannot have reactions.</p>
 <p>One reaction per account per post in each visibility mode. Public and Private are separate; switching does not move or erase an existing reaction. Pick another emoji to change it, or choose your current reaction again to remove it.</p>
 <p>Public reactions and their history are public. Private reactions stay in your private GitHub repo; its collaborators, GitHub, and the app service can access them. They never contribute to public counts. Removing a reaction updates current data, but does not erase Git history.</p>
 <a id="repository" target="_blank" rel="noopener">View the repository ↗</a>

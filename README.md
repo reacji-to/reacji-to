@@ -1,63 +1,54 @@
 # reacji-to
 
-A Chrome / Helium extension that adds an eyes icon beside the star on [dev-null.sh](https://dev-null.sh/) and under posts on X and LinkedIn. Search or paste any of 3,944 Unicode 17 emoji, including skin tones, flags, and families.
+React anywhere on the web with any emoji, using your GitHub identity. Right-click page content and choose **Place a reacji here**, or use the eyes picker beside dev-null stars and under X and LinkedIn posts.
 
-The picker has a **Public / Private** switcher. Public reactions live in `reacji-to/reacji-to`. Private reactions live in a private repository you own and choose after GitHub sign-in. Each post has one JSON file per repository: `data/<uuid>.json` for dev-null, `data/x/<id>.json` for X, and `data/linkedin/<activity-id>.json` for LinkedIn. Every change creates a Git commit directly; there are no reaction issues, GitHub Actions queues, or GitHub Pages.
+Choose **Public / Private** in the picker. Public reactions appear on the page for other extension users and at `reacji.to/YOUR_GITHUB_HANDLE`. Private reactions live in a private GitHub repository you own. Settings let you see **Everyone** or **People I follow on dev-null**, always including your own reactions.
 
-## Deployment status
+## Repositories
 
-The branded site and `reacji-to` Cloudflare Worker are deployed at reacji.to. Source and public reaction storage are in the `reacji-to/reacji-to` organization repository. The organization-owned GitHub App is registered with Device Flow enabled, and its credential is stored as a Worker secret. The selected-repository installation is the remaining activation step. `/health` reports credential presence, not installation access or a verified commit.
+| Repository | Purpose |
+| --- | --- |
+| [reacji-to](https://github.com/reacji-to/reacji-to) | Chrome / Helium extension |
+| [reacji-to-web](https://github.com/reacji-to/reacji-to-web) | Website and Cloudflare Worker |
+| [reacji-to-data](https://github.com/reacji-to/reacji-to-data) | Public reaction files and profile indexes |
+
+All three use the MIT license. The GitHub App gets Contents read/write and mandatory Metadata read on **only the data repository**. Private-mode users separately select their own private repo. No Issues queue, GitHub Pages, or repository-creation permission.
 
 ## Install and connect
 
-1. Download and extract the extension ZIP from [Releases](https://github.com/reacji-to/reacji-to/releases).
-2. Open `chrome://extensions` or `helium://extensions`, enable Developer mode, choose Load unpacked, and select the extracted folder. For local development, select `dist/` after building.
-3. Open the extension settings and click **Connect GitHub**. Enter the displayed code at GitHub and authorize **reacji-to**.
-4. For Private mode, choose **Choose repositories on GitHub** and install the app using **Only select repositories**. Select your private reactions repository. Alternatively, **Create a new private repo** opens GitHub’s repository form; select Private, create it, then install the app on that repo.
-5. Return to extension settings, refresh the repository list, choose your private repo, and save. Only private repos personally owned by the connected GitHub account and available to the app are listed.
-6. Reload dev-null, X, or LinkedIn. Open the eyes icon, select **Public** or **Private**, and choose an emoji.
+1. Download and extract [the extension ZIP](https://github.com/reacji-to/reacji-to/releases/latest).
+2. Open `chrome://extensions` or `helium://extensions`, enable Developer mode, choose **Load unpacked**, and select the extracted folder. For development, build and select `dist/`.
+3. Open the extension settings and **Connect GitHub**. Enter the displayed code on GitHub and authorize **reacji-to**. No personal access token is needed.
+4. For Private reactions, choose **Choose repositories on GitHub**, select **Only select repositories**, and install on your private reactions repo. **Create a new private repo** opens GitHub’s own creation form; choose Private, then install the app on it.
+5. Refresh the repository list in extension settings, select your private repo, and save.
+6. Reload your open webpages. Right-click a location, choose **Place a reacji here**, select Public or Private, and choose an emoji.
 
-All three sites use your GitHub identity. On dev-null, the extension checks the currently signed-in dev-null account before every write and private read. GitHub must be connected as the same account. Signed-out or mismatched accounts are blocked. Public counts can be read without connecting.
+Unpacked extensions do not auto-update. Replace their files and click Reload on the extensions page for a new release. Browser settings pages, the extension store, and other browser-protected pages cannot host reactions.
 
-One reaction per account per post **in each mode**. Pick another emoji to replace it, or pick your current emoji again to remove it. Public and Private are separate stores: switching the picker does not move or erase an existing public reaction. The picker tells you when a separate public reaction remains. Git history preserves removed reactions.
+## What is saved
 
-Unpacked extensions do not auto-update. Replace the extension files and click Reload on the extensions page when installing a new release.
+- One JSON file per dev-null/X/LinkedIn post.
+- One JSON file per webpage URL, identified by a SHA-256 hash. Each placement stores its DOM path, element type, relative position, and up to 160 characters of visible text. Form-field values are never captured.
+- Public writes update the post/page and the account’s public profile index in one Git commit. Private writes never touch the public repo or profile.
+- URL fragments used as SPA routes are preserved; ordinary section fragments and common tracking parameters are omitted. Meaningful query parameters remain part of the saved URL.
 
-## How it works
+Placements resolve by element path and text. If that path changes, a unique matching excerpt can recover it. Ambiguous or missing targets stay hidden. Canvas internals, closed shadow roots, and content that changes completely cannot reliably be anchored. The extension checks visible pages every 30 seconds; the public dev-null following list is cached for five minutes.
 
-```text
-picker → fresh dev-null session check → GitHub identity comparison
-                                      ↓
-                         reacji-to Cloudflare Worker
-                                      ↓
-                    GitHub App installation token
-                    restricted to one selected repo
-                                      ↓
-                 commit data/<post-uuid>.json directly
-```
+One reaction per account per post or placement **in each visibility mode**. Pick another emoji to replace it, or pick your existing emoji to remove it. Public and Private are independent stores; changing the switch never migrates an existing reaction. Git history preserves removed reactions. The following filter controls what you see, not who can see your public reactions.
 
-Public profiles at `https://reacji.to/YOUR_GITHUB_HANDLE` show current public reactions across all three sites, with platform filters and pagination. Profiles are keyed internally by numeric GitHub ID, so handle changes do not lose reactions. Public writes update both the post file and `profiles/<github-id>.json` in one atomic Git commit. Removal also removes the reaction from the current profile. Private writes never touch a public profile.
+## Identity and privacy
 
-The Worker verifies the OAuth token against GitHub `/user`, resolves the dev-null username through GitHub, and compares stable numeric account IDs. It derives the stored actor from GitHub, never from an actor field in a submitted event. The shared repository is pinned by numeric repository ID. Private targets must be private, personally owned by that actor, and writable through the user’s GitHub App token. The same checks run on each request, so making a private repo public disables Private mode for that repo.
+OAuth credentials stay in extension-only storage and go only to GitHub and `https://reacji.to`. The Worker independently verifies GitHub identity and uses an installation token narrowed to a single repository for commits. The app private key stays in a Cloudflare secret.
 
-The GitHub App requests **Contents: read and write** and GitHub’s mandatory **Metadata: read**. It requests no Issues, Actions, Administration, or account permissions. Install it only on the reaction repositories you select. GitHub cannot restrict Contents permission to a folder or to commits alone: the Worker restricts all data writes to validated platform/post paths and the authenticated user’s public profile index. It never accepts an arbitrary path, branch, or commit author from a caller.
+On dev-null, the extension checks the current site session before writes and private reads. The GitHub account must match, using immutable IDs where exposed. The Worker independently verifies the GitHub account; it cannot cryptographically attest to a dev-null browser session without upstream support. No dev-null session cookies are sent to the Worker.
 
-OAuth credentials represent the user; commits use a short-lived installation token restricted to exactly one repository and Contents write. The app’s private key is stored only as a Cloudflare Worker secret. It is never included in the extension. The Worker serializes changes per repository, uses SHA-conditional writes for private files and non-forced Git ref updates for atomic public post/profile changes, with bounded retries, and remembers completed request IDs for at least 24 hours. Same-value requests are no-ops. Rate limiting allows 30 writes per actor per repo per minute. Requests are not logged, and reaction data is stored in Git, not a separate database. The Durable Object stores only request timestamps and rate counters.
+Private data is not persisted in extension storage, is cleared from the page when hidden, and never contributes to public counts. A private repository’s collaborators, GitHub, and the app operator can access it; this is not end-to-end encryption. A private repo made public is rejected for Private mode.
 
-Public files are fetched directly from GitHub’s raw endpoint for visible posts, every 30 seconds while the tab is visible. Private files are read through the Worker with OAuth authorization and `no-store`; they never use the public raw endpoint or public counts. Private data is not persisted in extension storage and is cleared from the page when the tab is hidden. Ordinary `git clone` / `git pull` works for both repos with the appropriate GitHub credentials.
+To place and redisplay reactions across the web, this version requests HTTP/HTTPS site access plus Storage and Context Menus. It reads page elements for placement; it does not transmit whole pages or form fields. The Worker never fetches arbitrary page URLs.
 
-## Identity and privacy boundaries
+## Development
 
-- dev-null hides its numeric GitHub ID, so the extension reads the current session’s username from a fresh Inertia response and resolves that username through GitHub. When the session exposes a GitHub avatar URL, its embedded numeric ID must also match, preventing username reassignment from substituting an account. A GitHub rename not yet reflected by dev-null can block the check until dev-null syncs it.
-- dev-null does not expose an authentication delegation API. The extension enforces the current site-session check; a separate backend cannot cryptographically prove that a supplied username came from that browser session. The Worker always independently verifies GitHub identity. No dev-null cookies or session credentials are sent to the Worker.
-- OAuth tokens stay in extension-only storage, either for the session or across restarts if selected. They are sent only to GitHub and `https://reacji.to`. Disconnect clears local credentials; revoke the app authorization on GitHub to revoke them there too.
-- Private means stored in a private GitHub repository. Repository collaborators, GitHub, and the app operator can access that repo; this is not end-to-end encryption. Private reactions are displayed only in the connected owner’s extension and never added to public counts.
-- The app has no repository-creation permission. Creating a private repo uses GitHub’s own UI, followed by installing the app on that repo. Do not choose All repositories.
-- Existing v0.1 releases used the retired issue queue. Use the new release once the Worker and app credentials are configured.
-
-## Develop and deploy
-
-Requires Node 24+ and npm.
+Node 24+:
 
 ```sh
 npm ci
@@ -66,11 +57,20 @@ npm run build
 npx playwright install chromium
 npm run test:e2e
 npm run package
-npx wrangler deploy --dry-run
 ```
 
-See [GitHub App and Worker setup](docs/github-app.md) for deployment. `src/config.js` contains public IDs and the service URL; no secrets belong in source. `wrangler.jsonc` configures the Worker and a SQLite Durable Object used to serialize commits. Private keys and `.dev.vars` are ignored by Git.
+`src/config.js` contains only public app/repository IDs. Tests use fabricated accounts and mocked writes. X/LinkedIn adapters are covered with synthetic markup; live-site changes may require updates.
 
-Tests mock external writes and use fabricated accounts. They cover OAuth polling/refresh, actual MV3 injection, session changes, mismatched accounts, private repository filtering, public/private separation, path restrictions, permission narrowing, conflict recovery, emoji search, keyboard behavior, and mobile layout. Tests use synthetic X/LinkedIn markup; those sites can change their DOM and may require adapter updates. No test submits a reaction on a real social post.
+The website keeps a versioned snapshot of the shared validation modules. After changes to the contract or branding, export it deliberately from a committed extension checkout:
 
-Independent project, not affiliated with dev-null, X, LinkedIn, or GitHub. MIT; Unicode data is covered by `THIRD_PARTY_NOTICES.md`.
+```sh
+node scripts/export-web-core.mjs ../reacji-to-web
+```
+
+Then run the website’s tests and deploy from that repository. Its `shared/ORIGIN.json` records the source commit and hashes. See [website setup](https://github.com/reacji-to/reacji-to-web/blob/main/docs/github-app.md).
+
+## Activation status
+
+The organization-owned app and Cloudflare secret are configured. Installation on **reacji-to/reacji-to-data** is still required before real commits can succeed. The app must not be installed on the extension or website repos. Live writes have not yet been verified.
+
+MIT. Unicode data has its own notice in `THIRD_PARTY_NOTICES.md`. Independent of dev-null, X, LinkedIn, and GitHub.

@@ -1,6 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { publicPage } from '../../worker/pages.js';
-import { mkdir } from 'node:fs/promises';
 const tweet = id => `<article data-testid="tweet"><p>Illustrative post for extension testing.</p><div data-testid="quoteTweet"><a href="/quoted/status/555555555"><time>Quoted post</time></a></div><a href="/someone/status/${id}"><time>Today</time></a><div role="group"><button data-testid="reply">Reply</button><button>Repost</button><button>Like</button></div></article>`;
 const linked = id => `<article data-urn="urn:li:activity:${id}"><p>Illustrative LinkedIn post for extension testing.</p><div class="social-details-social-actions"><button>Like</button><button>Comment</button><button>Repost</button></div></article>`;
 for (const platform of ['x','linkedin']) test(`${platform}: picker uses GitHub identity, scopes posts, and handles recycled feed nodes`, async ({page}) => {
@@ -19,20 +17,4 @@ for (const platform of ['x','linkedin']) test(`${platform}: picker uses GitHub i
   await page.screenshot({path:`artifacts/${platform}-picker.png`,animations:'disabled'});
   await page.getByRole('button',{name:'fire',exact:true}).click();
   expect((await page.evaluate(()=>sent.filter(m=>m.type==='react'))).at(-1).event.post.id).toBe('987654321');
-});
-test('public profile filters, long handles, mobile, and empty states', async ({page}) => {
-  await mkdir('.impeccable/review',{recursive:true});
-  await page.route('https://reacji.to/**', async route => {
-    const response = await publicPage(new URL(route.request().url()),{},async url=>url.includes('/users/')?Response.json({id:42,login:'a-very-long-github-handle-for-a-profile'}):Response.json({version:1,id:42,reactions:Object.fromEntries(['x','linkedin','devnull'].map((platform,i)=>[platform,{post:{platform,id:platform==='devnull'?'01a14f9d-76a7-72d9-a92d-48ae9ea999cb':'123456789',author:'octocat'},emoji:['🚀','💡','👀'][i],at:'2026-10-18T00:00:00Z'}]))}));
-    await route.fulfill({status:response.status,contentType:response.headers.get('content-type'),body:Buffer.from(await response.arrayBuffer())});
-  });
-  await page.setViewportSize({width:1440,height:1000}); await page.goto('https://reacji.to/octocat');
-  await expect(page.locator('.feed li')).toHaveCount(3); await page.screenshot({path:'.impeccable/review/desktop.png',fullPage:true});
-  await page.getByRole('link',{name:'LinkedIn',exact:true}).click(); await expect(page.locator('.feed li')).toHaveCount(1);
-  await page.getByRole('link',{name:'All',exact:true}).click(); await page.setViewportSize({width:390,height:844});
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  await page.screenshot({path:'.impeccable/review/mobile.png',fullPage:true});
-  await page.goto('https://reacji.to/'); await page.screenshot({path:'artifacts/home-mobile.png',fullPage:true});
-  await page.getByLabel('Find a public reaction profile').fill('octocat');await page.getByRole('button',{name:'View profile'}).click();
-  await expect(page).toHaveURL(/octocat/);
 });
