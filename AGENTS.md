@@ -9,3 +9,5 @@ For changes to reaction UI or any of its imports:
 3. Run the extension build and relevant extension tests too. Do not report the work complete with only one surface updated.
 
 Use the website's `npm run preview` for a live loopback preview; it watches this extension import graph. Its `AGENTS.md` documents the adapter boundaries and consistency checks. If the website checkout is unavailable, report the sync as incomplete rather than implying both surfaces are updated.
+
+Page placement uses hold-down Option (Alt on Windows/Linux) plus click on both surfaces. Do not reintroduce a reaction context menu. Existing eyes buttons beside posts stay available.

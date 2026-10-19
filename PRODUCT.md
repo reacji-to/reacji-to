@@ -9,7 +9,7 @@ web
 Chrome and Helium users who want to react to posts and page content using their GitHub identity.
 
 ## Purpose
-Hold Option/Alt to turn the pointer into the blue eyes, then click ordinary webpage content to open the reaction picker. Keep right-click placement available. Also provide the small eyes picker beside dev-null stars and immediately after the like button on X/LinkedIn.
+Hold Option/Alt to turn the pointer into the blue eyes, then click ordinary webpage content to open the reaction picker. Also provide the small eyes picker beside dev-null stars and immediately after the like button on X/LinkedIn.
 
 ## Behavior
 The picker has exact Public / Private labels. Public reactions are shared and appear at reacji.to/GITHUB_HANDLE. Private reactions live in a personally owned private GitHub repository selected after GitHub device OAuth. Each reaction change is a direct Git commit. Public and Private are independent stores, and removed reactions remain in Git history.

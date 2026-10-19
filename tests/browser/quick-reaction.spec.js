@@ -72,7 +72,7 @@ test('release, Escape, blur and other modifiers restore the page cursor', async 
   await expect(page).toHaveURL('https://example.test/destination');
 });
 
-test('text fields and editable content retain their normal interaction; right-click still opens the picker', async ({ page }) => {
+test('text fields and editable content retain their normal interaction; right-click is left to the browser', async ({ page }) => {
   for (const selector of ['input', '[contenteditable]']) {
     await page.locator(selector).click();
     await page.keyboard.down('Alt');
@@ -84,8 +84,7 @@ test('text fields and editable content retain their normal interaction; right-cl
     await page.keyboard.up('Alt');
   }
   await page.locator('#target').click({ button: 'right' });
-  await page.evaluate(() => window.fromBackground({ type: 'place-reaction' }));
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 test('releasing Alt during a click still consumes that gesture; Escape cancels it', async ({ page }) => {
@@ -132,4 +131,18 @@ test('the installed extension displays the eyes cursor and opens the picker in i
     await context?.close();
     await rm(profile, { recursive: true, force: true });
   }
+});
+
+test('Option-click survives body replacement, SPA navigation and duplicate injection', async ({ page }) => {
+  await page.evaluate(() => {
+    const body = document.createElement('body');
+    body.innerHTML = '<p id="replacement">New page content</p>';
+    document.body.replaceWith(body);
+    history.pushState({}, '', '/new-page');
+  });
+  await page.locator('#replacement').click({ modifiers: ['Alt'] });
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.addScriptTag({ path: 'dist/content.js' });
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  await expect(page.locator('reacji-to-reactions')).toHaveCount(2);
 });

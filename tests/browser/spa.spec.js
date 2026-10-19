@@ -45,11 +45,7 @@ test('LinkedIn page placements save and reload after SPA navigation', async () =
     await page.evaluate(() => { history.replaceState({}, '', '/feed/'); document.body.append(document.createElement('hr')); });
     await expect.poll(() => worker.evaluate(() => reads.at(-1)?.post.url)).toBe('https://www.linkedin.com/feed/');
     expect(await worker.evaluate(() => reads.at(-1).url)).toBe('https://www.linkedin.com/preload/');
-    await page.locator('#target').click({ button: 'right' });
-    await worker.evaluate(async () => {
-      const [tab] = await chrome.tabs.query({ url: 'https://www.linkedin.com/feed/' });
-      await chrome.tabs.sendMessage(tab.id, { type: 'place-reaction' }, { frameId: 0 });
-    });
+    await page.locator('#target').click({ modifiers: ['Alt'] });
     await page.getByRole('searchbox').fill('🚀');
     await page.getByRole('button', { name: 'rocket', exact: true }).click();
     await expect.poll(() => writes.length).toBe(1);

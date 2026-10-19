@@ -18,7 +18,7 @@ test('saved pins show only emoji; changes and removals are optimistic and roll b
   });
   await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:m=>window.testSend(m),onMessage:{addListener:fn=>window.fromBackground=fn}}};});
   await page.goto('https://example.test/');await page.addScriptTag({path:'dist/content.js'});
-  await page.locator('#target').click({button:'right'});await page.evaluate(()=>fromBackground({type:'place-reaction'}));
+  await page.locator('#target').click({modifiers:['Alt']});
   await page.getByRole('searchbox').fill('🐣');await page.getByRole('button',{name:'hatching chick',exact:true}).click();
   const chip=page.locator('.pin .chip');
   await expect(chip).toContainText('🐣');await expect(chip).toBeEnabled();
@@ -56,15 +56,13 @@ test('picker opens while the existing-reaction read is stalled', async({page})=>
     : new Promise(()=>{}));
   await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:m=>window.testSend(m),onMessage:{addListener:fn=>window.fromBackground=fn}}};});
   await page.goto('https://example.test/');await page.addScriptTag({path:'dist/content.js'});
-  await page.locator('#target').click({button:'right'});
-  const reply=await page.evaluate(()=>{let result;fromBackground({type:'place-reaction'},{},value=>result=value);return result;});
-  expect(reply).toEqual({handled:true});
+  await page.locator('#target').click({modifiers:['Alt']});
   await expect(page.getByRole('dialog')).toBeVisible({timeout:1500});
   await expect(page.getByRole('searchbox')).toBeEditable();
   await expect(page.getByText('Connect GitHub in settings before reacting.')).toBeVisible();
 });
 
-test('right-click placement persists, follows DOM movement, hides on mismatch, and separates Private',async({page})=>{
+test('Option-click placement persists, follows DOM movement, hides on mismatch, and separates Private',async({page})=>{
   const docs={public:new Map(),private:new Map()},writes=[];
   const html='<meta charset="utf-8"><style>body{font:18px system-ui;max-width:720px;margin:60px auto;padding:24px;background:#f6f7f8;color:#121417}p{padding:30px;background:white}</style><h1>A page worth reacting to</h1><p id="target">This particular sentence deserves a reaction.</p><input type="password" aria-label="Password">';
   await page.route('https://example.test/**',r=>r.fulfill({body:html,contentType:'text/html'}));
@@ -78,8 +76,8 @@ test('right-click placement persists, follows DOM movement, hides on mismatch, a
   await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:m=>window.testSend(m),onMessage:{addListener:fn=>window.fromBackground=fn}}};});
   const load=async()=>{await page.goto('https://example.test/article?utm_source=test');await page.addScriptTag({path:'dist/content.js'});};
   await load();
-  await page.evaluate(()=>fromBackground({type:'place-reaction'}));await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.locator('#target').click({button:'right'});await page.evaluate(()=>fromBackground({type:'place-reaction'}));
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.locator('#target').click({modifiers:['Alt']});
   await expect(page.getByRole('dialog')).toBeVisible();await page.getByRole('searchbox').fill('💙');await page.getByRole('button',{name:'blue heart',exact:true}).click();
   await expect(page.getByRole('button',{name:/💙, 1 reaction/})).toBeVisible();
   expect(writes[0].event.post).toEqual(await pagePost('https://example.test/article'));expect(writes[0].event.placement.quote).toBe('This particular sentence deserves a reaction.');
@@ -100,7 +98,7 @@ test('right-click placement persists, follows DOM movement, hides on mismatch, a
   await page.screenshot({path:'.impeccable/review/web-placement-scroll.png',fullPage:true});
 
   await page.locator('#target').evaluate(p=>p.textContent='Completely different content.');await expect(page.locator('.pin .chip').first()).toBeHidden();
-  await page.getByLabel('Password',{exact:true}).click({button:'right'});await page.evaluate(()=>fromBackground({type:'place-reaction'}));await expect(page.getByText('Choose page content outside a text field.')).toBeVisible();expect(writes).toHaveLength(2);
+  await page.getByLabel('Password',{exact:true}).click({modifiers:['Alt']});await expect(page.getByRole('dialog')).toHaveCount(0);expect(writes).toHaveLength(2);
   await page.evaluate(()=>{history.pushState({},'', '/different');document.body.append(document.createElement('hr'));});await expect(page.locator('.pin .chip').first()).toHaveCount(0);
 });
 
@@ -115,7 +113,7 @@ test('a private read that finishes after the page is hidden cannot restore priva
   });
   await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:async m=>{const result=await window.testSend(m);if(m.type==='private-read')window.privateReadFinished=true;return result;},onMessage:{addListener:fn=>window.fromBackground=fn}}};});
   await page.goto('https://example.test/');await page.addScriptTag({path:'dist/content.js'});
-  await page.locator('#target').click({button:'right'});await page.evaluate(()=>fromBackground({type:'place-reaction'}));
+  await page.locator('#target').click({modifiers:['Alt']});
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByRole('searchbox').fill('💙');await page.getByRole('button',{name:'blue heart',exact:true}).click();
   await expect(page.getByRole('button',{name:/💙, 1 reaction/})).toBeVisible();
@@ -146,7 +144,7 @@ test('rapid choices stay interactive and older saves cannot undo the newest inte
   });
   await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:m=>window.testSend(m),onMessage:{addListener:fn=>window.fromBackground=fn}}};});
   await page.goto('https://example.test/');await page.addScriptTag({path:'dist/content.js'});
-  await page.locator('#target').click({button:'right'});await page.evaluate(()=>fromBackground({type:'place-reaction'}));
+  await page.locator('#target').click({modifiers:['Alt']});
   const pick=async(emoji,name)=>{await page.getByRole('searchbox').fill(emoji);await page.getByRole('button',{name,exact:true}).click();};
   await pick('🐣','hatching chick');
   const chip=page.locator('.pin .chip');

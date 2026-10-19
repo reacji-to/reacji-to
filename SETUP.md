@@ -54,7 +54,7 @@ If browser tools cannot use **Load unpacked**, open the extensions page and give
 
 **Verify:** reacji.to appears in the intended profile's extensions list, and its settings open from the toolbar icon or extension Options.
 
-The extension uses HTTP/HTTPS site access, Storage, and Context Menus to place and redisplay reactions. Browser settings pages, extension stores, and other browser-protected pages cannot host reactions.
+The extension uses HTTP/HTTPS site access, Storage to place and redisplay reactions. Its legacy Context Menus permission only removes the old menu during upgrades. Browser settings pages, extension stores, and other browser-protected pages cannot host reactions.
 
 ## 2. Connect the user's GitHub account
 
@@ -125,7 +125,7 @@ Private reactions are stored in this repository, not in the public data reposito
 ## 5. Verify a complete private save
 
 1. Open or reload `https://example.com/` in the browser profile where you installed the extension. Reload other webpages that were already open before installation too.
-2. Right-click ordinary page content and select **👀 reacji to this**.
+2. Hold down **Option** (**Alt** on Windows/Linux) and click ordinary page content.
 3. **Select Private before choosing an emoji.** Connecting a private repository does not make every new picker private; check the selected mode each time.
 4. Search for or paste 🧪 and select it. Wait for the save to finish without an error.
 5. Reload the page. Confirm the private reaction returns at the intended location. If necessary, reopen its picker and select Private.
@@ -140,7 +140,7 @@ If setup is public-only, verify that the picker opens. Test a public save only w
 
 Give a short walkthrough using the use cases above:
 
-- **On webpages:** right-click the specific content, choose **👀 reacji to this**, choose Public or Private, then choose any emoji.
+- **On webpages:** hold down **Option** (**Alt** on Windows/Linux) and click the specific content, choose Public or Private, then choose any emoji.
 - **On dev-null, X, and LinkedIn:** the small eyes picker beside or under a post also opens reactions.
 - **To change or remove a reaction:** reopen its picker in the same visibility mode. Choose another emoji to replace it, or the same emoji to remove it.
 - **To choose whose public reactions appear:** in settings, under **Whose reactions you see**, choose **Everyone** or **People I follow on dev-null**. Use **Refresh following list** after changing follows. This filters what the user sees; it does not limit who can see their Public reactions.

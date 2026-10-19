@@ -6,7 +6,6 @@ import { parseReaction, COMMIT_ID } from './protocol.js';
 import { createAuth } from './auth.js';
 import { canonicalUrl, verifyPagePost } from './web.js';
 import { loadFollowing, filterReactions } from './following.js';
-import { placeFromMenu } from './context-menu.js';
 import { createUpdateChecker } from './updates.js';
 import { senderPage } from './sender.js';
 
@@ -214,9 +213,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   return true;
 });
 chrome.action.onClicked.addListener(() => chrome.runtime.openOptionsPage());
-const setupMenu = () => chrome.contextMenus.removeAll(() => chrome.contextMenus.create({ id: 'reacji-to-place', title: '👀 reacji to this', contexts: ['all'], documentUrlPatterns: ['http://*/*', 'https://*/*'] }));
-chrome.runtime.onInstalled.addListener(() => { setupMenu(); checkUpdatesQuietly(); });
-chrome.runtime.onStartup.addListener(() => { setupMenu(); checkUpdatesQuietly(); });
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  void placeFromMenu(info, tab);
-});
+// Remove the legacy menu on upgrade/startup. Never register a reaction context menu.
+const removeLegacyMenu = () => { void chrome.contextMenus.removeAll().catch(() => {}); };
+chrome.runtime.onInstalled.addListener(() => { removeLegacyMenu(); checkUpdatesQuietly(); });
+chrome.runtime.onStartup.addListener(() => { removeLegacyMenu(); checkUpdatesQuietly(); });

@@ -1,6 +1,6 @@
 # reacji.to
 
-React anywhere on the web with any emoji, using your GitHub identity. Hold **Option** on Mac (**Alt** on Windows/Linux) to turn the pointer into blue eyes, then click page content to open the reaction picker. Release the key or press Escape to cancel. You can also right-click and choose **👀 reacji to this**, or use the eyes picker beside dev-null stars and immediately after the like button on X and LinkedIn.
+React anywhere on the web with any emoji, using your GitHub identity. Hold **Option** on Mac (**Alt** on Windows/Linux) to turn the pointer into blue eyes, then click page content to open the reaction picker. Release the key or press Escape to cancel. You can also use the eyes picker beside dev-null stars and immediately after the like button on X and LinkedIn.
 
 Choose **Public / Private** in the picker. New reactions remember your last choice across pages and browser restarts; opening an existing reaction chip keeps its visibility. Public reactions appear on the page for other extension users and at `reacji.to/YOUR_GITHUB_HANDLE`. Private reactions live in a private GitHub repository you own. Settings let you see **Everyone** or **People I follow on dev-null**, always including your own reactions.
 
@@ -36,7 +36,7 @@ The extension checks for new stable GitHub releases on startup and during use, a
 
 Placements resolve by element path and text. If that path changes, a unique matching excerpt can recover it. Ambiguous or missing targets stay hidden. Canvas internals, closed shadow roots, and content that changes completely cannot reliably be anchored. The extension checks visible pages every 30 seconds; the public dev-null following list is cached for five minutes.
 
-One reaction per account per post or placement **in each visibility mode**. Pick another emoji to replace it, or pick your existing emoji to remove it. Public and Private are independent stores; changing the switch never migrates an existing reaction. Git history preserves removed reactions. The following filter controls what you see, not who can see your public reactions.
+One reaction per account per post or placement **in each visibility mode**. Pick another emoji to replace it. To clear a webpage reaction, Option/Alt-click your emoji again, or open it and choose **Clear reaction**. Option/Alt-clicking the same page target also clears your existing reaction. Picking your existing emoji still removes it. Public and Private are independent stores; clearing affects only the selected mode, and changing the switch never migrates an existing reaction. Git history preserves removed reactions. The following filter controls what you see, not who can see your public reactions.
 
 ## Identity and privacy
 
@@ -46,7 +46,7 @@ On dev-null, the extension checks the current site session before writes and pri
 
 Private data is not persisted in extension storage, is cleared from the page when hidden, and never contributes to public counts. A private repository’s collaborators, GitHub, and the app operator can access it; this is not end-to-end encryption. A private repo made public is rejected for Private mode.
 
-To place and redisplay reactions across the web, this version requests HTTP/HTTPS site access plus Storage and Context Menus. It reads page elements for placement; it does not transmit whole pages or form fields. The Worker never fetches arbitrary page URLs.
+To place and redisplay reactions across the web, this version requests HTTP/HTTPS site access plus Storage. The legacy Context Menus permission is retained only to remove the old menu from existing installations. It reads page elements for placement; it does not transmit whole pages or form fields. The Worker never fetches arbitrary page URLs.
 
 ## Development
 

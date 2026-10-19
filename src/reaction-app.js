@@ -36,7 +36,7 @@ const siteIdentity = () => platform === 'devnull' ? currentDevNullUser() : Promi
 let actor = null;
 let active = null;
 let pickerGeneration = 0, lastVisibility = 'public';
-let pageIdentity = null, lastContext = null, pageLoading = false, pageGeneration = 0, pageHref = location.href;
+let pageIdentity = null, pageLoading = false, pageGeneration = 0, pageHref = location.href;
 let pagePublic = null, pagePrivate = null, privateGeneration = 0;
 const optimistic = new Map();
 const movingRecords = new Set();
@@ -104,6 +104,7 @@ function notify(message, url, retry) {
 }
 function display(record) {
   if (record.dragging) return;
+  if (active?.record === record) active.updateRemoval?.();
   const social = ['x', 'linkedin'].includes(record.post.platform);
   const focused = record.el.shadowRoot.activeElement;
   const focusedLabel = focused?.classList.contains('chip') ? focused.getAttribute('aria-label') : null;
@@ -115,8 +116,15 @@ function display(record) {
     button.append(document.createTextNode(`${record.visibility === 'private' ? '🔒 ' : ''}${group.emoji}`));
     if (record.placement) { button.setAttribute('aria-haspopup', 'dialog'); button.setAttribute('aria-expanded', String(active?.record === record)); }
 
-    if (record.placement && group.mine) { button.classList.add('movable'); button.title += ' · Drag to move'; }
-    button.addEventListener('click', event => { event.stopPropagation(); if (record.suppressClick) { record.suppressClick = false; return; } if (event.isTrusted) record.placement ? openPicker(record, true) : choose(record, group.mine ? null : group.emoji); });
+    if (record.placement && group.mine) { button.classList.add('movable'); button.title += ' · Option/Alt-click to clear · Drag to move'; }
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      if (record.suppressClick) { record.suppressClick = false; return; }
+      if (!event.isTrusted) return;
+      if (record.placement && group.mine && event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.getModifierState?.('AltGraph')) {
+        event.preventDefault(); choose(record, null);
+      } else record.placement ? openPicker(record, true) : choose(record, group.mine ? null : group.emoji);
+    });
     record.chips.append(button);
   }
   if (focusedLabel) [...record.chips.children].find(button => button.getAttribute('aria-label') === focusedLabel)?.focus({ preventScroll: true });
@@ -261,10 +269,25 @@ async function openPicker(record, preserveVisibility = false, { focus = true } =
   const visibility = element('div', { class: 'visibility', role: 'group', 'aria-label': 'Reaction visibility' });
   const publicButton = element('button', { type: 'button', 'aria-pressed': String(record.visibility !== 'private') }, 'Public');
   const privateButton = element('button', { type: 'button', 'aria-pressed': String(record.visibility === 'private') }, 'Private');
+  const removal = element('div', { class: 'current-reaction', hidden: '' });
+  const currentEmoji = element('span', { class: 'current-emoji', 'aria-hidden': 'true' });
+  const currentLabel = element('span', {}, 'Your reaction');
+  const removeButton = element('button', { class: 'remove-reaction', type: 'button' }, 'Clear reaction');
+  const updateRemoval = () => {
+    const mine = usersFor(record)[actor?.id]?.emoji;
+    removal.hidden = !mine;
+    currentEmoji.textContent = mine || '';
+    currentLabel.textContent = record.visibility === 'private' ? 'Your private reaction' : 'Your reaction';
+    positionPicker();
+  };
+  removeButton.addEventListener('click', event => {
+    if (event.isTrusted && usersFor(record)[actor?.id]?.emoji) choose(record, null);
+  });
+  removal.append(currentEmoji, currentLabel, removeButton);
   const updateScope = () => {
     publicButton.setAttribute('aria-pressed', String(record.visibility !== 'private'));
     privateButton.setAttribute('aria-pressed', String(record.visibility === 'private'));
-
+    updateRemoval();
   };
   const switchScope = async value => {
     rememberVisibility(value);
@@ -277,9 +300,9 @@ async function openPicker(record, preserveVisibility = false, { focus = true } =
   privateButton.addEventListener('click', event => { if (event.isTrusted) switchScope('private'); });
   visibility.append(publicButton, privateButton);
   updateScope();
-  panel.append(head, visibility, controls, grid, status);
+  panel.append(head, visibility, removal, controls, grid, status);
   overlay.shadow.append(panel);
-  active = { record, panel, status };
+  active = { record, panel, status, updateRemoval };
   record.button.setAttribute('aria-expanded', 'true');
   let limit = 96;
   const draw = () => {
@@ -316,7 +339,7 @@ async function openPicker(record, preserveVisibility = false, { focus = true } =
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); closePicker(); }
     if (event.key === 'Tab') {
-      const controls = [...panel.querySelectorAll('button:not(:disabled),input,select')];
+      const controls = [...panel.querySelectorAll('button:not(:disabled),input,select')].filter(control => control.getClientRects().length);
       const first = controls[0], last = controls.at(-1);
       if (event.shiftKey && overlay.shadow.activeElement === first) { event.preventDefault(); last.focus(); }
       if (!event.shiftKey && overlay.shadow.activeElement === last) { event.preventDefault(); first.focus(); }
@@ -492,16 +515,10 @@ async function loadPage() {
 function pageChanged() {
   if (pageHref === location.href) return;
   movingRecords.clear();
-  pageHref = location.href; pageGeneration++; pageIdentity = null; pagePublic = null; pagePrivate = null; lastContext = null;
+  pageHref = location.href; pageGeneration++; pageIdentity = null; pagePublic = null; pagePrivate = null;
   for (const [el,record] of records) if (record.placement) { if (active?.record === record) closePicker(); observer.unobserve(el); el.remove(); records.delete(el); }
   loadPage();
 }
-document.addEventListener('contextmenu', event => {
-  if (event.isTrusted && !event.composedPath().some(el=>el.localName === 'reacji-to-reactions')) {
-    pageChanged();
-    lastContext = { target: event.target, x: event.clientX, y: event.clientY, href: location.href };
-  }
-}, true);
 async function placeReaction(context, options) {
   beforePlace();
   if (!overlay.el.isConnected) document.body.append(overlay.el);
@@ -511,6 +528,10 @@ async function placeReaction(context, options) {
     const post = await pagePost(context.href);
     if (context.href !== location.href || !context.target.isConnected) return;
     let record = [...records.values()].find(r=>r.placement && r.anchor === context.target && postKey(r.post) === postKey(post));
+    if (options?.toggle && record && usersFor(record)[actor?.id]?.emoji) {
+      choose(record, null);
+      return record;
+    }
     if (!record) record = addRecord({ article: context.target, anchor: context.target, post, inline: true, placement, pending: true });
     record.pending = true; record.el.hidden = false; positionPins();
     // Open immediately; reading existing reactions must not delay the picker.
@@ -518,17 +539,7 @@ async function placeReaction(context, options) {
     return record;
   } catch (error) { notify(error.message); }
 }
-installQuickReaction({ cursor: pickerLogo, enabled: () => !active, place: placeReaction });
-runtime.onMessage?.addListener((message, sender, reply) => {
-  if (message.type !== 'place-reaction') return;
-  reply?.({ handled: true });
-  if (!lastContext || lastContext.href !== location.href) {
-    notify('Right-click the page content again to choose where to react.');
-    return;
-  }
-  const context = lastContext; lastContext = null;
-  void placeReaction(context);
-});
+installQuickReaction({ cursor: pickerLogo, enabled: () => !active, place: context => placeReaction(context, { toggle: true }) });
 let scheduled = false;
 function scheduleScan() {
   if (!scheduled) { scheduled = true; requestAnimationFrame(() => { scheduled = false; pageChanged(); scan(); reconcilePins(); }); }
