@@ -166,3 +166,52 @@ test('rapid choices stay interactive and older saves cannot undo the newest inte
   await expect(chip).toHaveCount(0);await expect.poll(()=>writes.length).toBe(5);
   finish(true);await expect.poll(()=>Object.keys(doc.placements).length).toBe(0);
 });
+
+test('drag moves only my reaction, saves atomically, survives reload and does not open the picker', async({page})=>{
+  const post=await pagePost('https://example.test/');
+  const anchor={id:crypto.randomUUID(),selector:'html:nth-of-type(1) > body:nth-of-type(1) > p:nth-of-type(1)',tag:'p',quote:'Original paragraph',x:500,y:500};
+  let doc={version:1,commit:post.id,post,users:{},placements:{[anchor.id]:{anchor,users:{42:{login:'octocat',emoji:'💙'},99:{login:'friend',emoji:'🔥'}}}}};
+  const writes=[];let finish;
+  await page.route('https://example.test/**',r=>r.fulfill({contentType:'text/html',body:'<style>body{margin:50px;font:20px sans-serif;height:1800px}p{padding:40px;background:#eee;margin-bottom:90px}</style><p>Original paragraph</p><p id="drop">Drop here</p><input aria-label="Text field">'}));
+  await page.exposeFunction('testSend',m=>{
+    if(m.type==='status')return {ok:true,value:{connected:true,actor:{id:42,login:'octocat'}}};
+    if(m.type==='react'){writes.push(m);return new Promise(resolve=>{finish=success=>{
+      if(!success)return resolve({ok:false,error:'Save failed.'});
+      doc=structuredClone(doc);const e=m.event;
+      if(e.moveFrom){delete doc.placements[e.moveFrom].users[42];if(!Object.keys(doc.placements[e.moveFrom].users).length)delete doc.placements[e.moveFrom];}
+      doc.placements[e.placement.id]={anchor:e.placement,users:{42:{login:'octocat',emoji:e.emoji}}};
+      resolve({ok:true,value:{actor:{id:42,login:'octocat'},document:doc}});
+    };});}
+    return {ok:true,value:doc};
+  });
+  await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:m=>window.testSend(m),onMessage:{addListener:fn=>window.fromBackground=fn}}};});
+  const load=async()=>{await page.goto('https://example.test/');await page.addScriptTag({path:'dist/content.js'});};
+  await load();
+  const mine=page.locator('.pin .chip').filter({hasText:'💙'}),other=page.locator('.pin .chip').filter({hasText:'🔥'});
+  await expect(mine).toHaveClass(/movable/);await expect(other).not.toHaveClass(/movable/);
+  const before=await mine.boundingBox(),otherBefore=await other.boundingBox(),drop=await page.locator('#drop').boundingBox();
+  await page.mouse.move(before.x+before.width/2,before.y+before.height/2);await page.mouse.down();
+  await page.mouse.move(drop.x+drop.width*.6,drop.y+drop.height*.5,{steps:8});await page.mouse.up();
+  await expect(page.getByRole('dialog')).toHaveCount(0);await expect.poll(()=>writes.length).toBe(1);
+  expect(writes[0].event.moveFrom).toBe(anchor.id);expect(writes[0].event.placement.mode).toBe('point');expect(writes[0].event.placement.quote).toBe('Drop here');
+  const moved=await mine.boundingBox();expect(moved.y).toBeGreaterThan(before.y+100);
+  expect((await other.boundingBox()).y).toBeCloseTo(otherBefore.y,0);
+  finish(true);await expect.poll(()=>Boolean(doc.placements[writes[0].event.placement.id])).toBe(true);
+  await load();await expect(mine).toBeVisible();expect((await mine.boundingBox()).y).toBeCloseTo(moved.y,0);
+  // Two fast drops stay at the newest point, even when the earlier save fails.
+  const dragTo=async(x,y)=>{const b=await mine.boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.mouse.move(x,y,{steps:6});await page.mouse.up();};
+  await dragTo(300,220);await expect.poll(()=>writes.length).toBe(2);
+  await dragTo(drop.x+drop.width*.35,drop.y+drop.height*.65);
+  const newest=await mine.boundingBox();finish(false);await expect.poll(()=>writes.length).toBe(3);
+  expect((await mine.boundingBox()).y).toBeCloseTo(newest.y,0);
+  expect(writes[2].event.moveFrom).toBe(writes[0].event.placement.id);
+  finish(true);await expect.poll(()=>Boolean(doc.placements[writes[2].event.placement.id])).toBe(true);
+  // Failed writes restore the last committed position, not the original placement.
+  const current=await mine.boundingBox();await page.mouse.move(current.x+current.width/2,current.y+current.height/2);await page.mouse.down();await page.mouse.move(300,220,{steps:8});await page.mouse.up();
+  await expect.poll(()=>writes.length).toBe(4);finish(false);
+  await expect(page.getByText(/Previous reaction restored/)).toBeVisible();
+  await expect.poll(async()=>Math.abs((await mine.boundingBox()).y-current.y)).toBeLessThan(2);
+  // A click remains a click, and Escape cancels a drag without committing.
+  await mine.click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');
+  const b=await mine.boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.mouse.move(250,250,{steps:5});await page.keyboard.press('Escape');await page.mouse.up();expect(writes).toHaveLength(4);
+});

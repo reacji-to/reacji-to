@@ -14,7 +14,8 @@ export function parseReaction(value) {
   if (!value || value.version !== 1) throw new Error('Invalid post reference.');
   const post = postRef(value.post || value.commit);
   if (value.emoji !== null && !emojiValue(value.emoji)) throw new Error('Choose one Unicode emoji.');
-  return { version: 1, commit: post.id, ...(value.post ? { post } : {}), ...(post.platform === 'web' ? { placement: placementRef(value.placement) } : {}), emoji: value.emoji === null ? null : emojiValue(value.emoji) };
+  if (value.moveFrom !== undefined && (post.platform !== 'web' || typeof value.moveFrom !== 'string' || !COMMIT_ID.test(value.moveFrom) || value.emoji === null || value.moveFrom === value.placement?.id)) throw new Error('Invalid reaction move.');
+  return { ...(value.moveFrom ? { moveFrom: value.moveFrom.toLowerCase() } : {}), version: 1, commit: post.id, ...(value.post ? { post } : {}), ...(post.platform === 'web' ? { placement: placementRef(value.placement) } : {}), emoji: value.emoji === null ? null : emojiValue(value.emoji) };
 }
 export function summarize(document, actorId) {
   const groups = new Map();

@@ -19,7 +19,8 @@ export function placementRef(value) {
   if (!value || !/^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(value.id || '') || typeof value.selector !== 'string' || value.selector.length > 1800
     || !/^[a-z][a-z\d-]*:nth-of-type\([1-9]\d{0,4}\)(?: > [a-z][a-z\d-]*:nth-of-type\([1-9]\d{0,4}\)){0,39}$/.test(value.selector)
     || !/^[a-z][a-z\d-]{0,40}$/.test(value.tag || '') || typeof value.quote !== 'string' || value.quote.length > 160
+    || (value.mode !== undefined && value.mode !== 'point')
     || ![value.x, value.y].every(n => Number.isInteger(n) && n >= 0 && n <= 1000)) throw new Error('Invalid page placement.');
-  return { id: value.id.toLowerCase(), selector: value.selector, tag: value.tag, quote: value.quote, x: value.x, y: value.y };
+  return { id: value.id.toLowerCase(), selector: value.selector, tag: value.tag, quote: value.quote, x: value.x, y: value.y, ...(value.mode === 'point' ? { mode: 'point' } : {}) };
 }
 export const placementUsers = (doc, placement) => placement ? doc?.placements?.[placement.id]?.users || {} : doc?.users || {};

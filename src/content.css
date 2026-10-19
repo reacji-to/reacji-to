@@ -14,3 +14,5 @@
 .pin{background:#eef0f2;color:#5b616b;border:0;border-radius:8px;flex-wrap:nowrap;padding:0;max-width:min(240px,calc(100vw - 16px));position:relative}.pin .bar{max-height:84px;overflow:auto;scrollbar-width:thin}.pin .trigger{padding:6px 8px}.pin .chip{background:transparent;color:#5b616b;font-size:20px;padding:6px 8px;min-height:36px}.pin .chip:hover{background:#e1e4e8}.pin .chip:focus-visible{outline-color:#3b6fe0}.page-target{overflow-wrap:anywhere;max-height:64px;overflow:auto}
 
 .trigger[hidden]{display:none}
+
+.pin .movable{cursor:grab;touch-action:none;user-select:none}:host([data-dragging]) .pin .movable{cursor:grabbing}:host([data-dragging]){user-select:none}

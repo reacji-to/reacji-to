@@ -126,7 +126,7 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     await expect.poll(()=>submissions.length).toBe(2);
     expect(submissions[1].repository).toBe('octocat/reacji-to-private');
     expect(submissions[1].visibility).toBe('private');
-    await context.route('https://x.com/**', route => route.fulfill({ contentType: 'text/html', body: '<meta charset="utf-8"><article data-testid="tweet"><a href="/person/status/123456789"><time>Today</time></a><div role="group"><button data-testid="reply">Reply</button></div></article>' }));
+    await context.route('https://x.com/**', route => route.fulfill({ contentType: 'text/html', body: '<meta charset="utf-8"><article data-testid="tweet"><a href="/person/status/123456789"><time>Today</time></a><div role="group"><button data-testid="reply">Reply</button><button data-testid="like">Like</button></div></article>' }));
     siteUsername = null; // X reactions must not require a dev-null session.
     await page.goto('https://x.com/home');
     await page.getByRole('button', { name: 'React with an emoji', exact: true }).click();

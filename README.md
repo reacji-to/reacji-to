@@ -1,6 +1,6 @@
 # reacji.to
 
-React anywhere on the web with any emoji, using your GitHub identity. Right-click page content and choose **👀 reacji to this**, or use the eyes picker beside dev-null stars and under X and LinkedIn posts.
+React anywhere on the web with any emoji, using your GitHub identity. Hold **Option** on Mac (**Alt** on Windows/Linux) to turn the pointer into blue eyes, then click page content to open the reaction picker. Release the key or press Escape to cancel. You can also right-click and choose **👀 reacji to this**, or use the eyes picker beside dev-null stars and immediately after the like button on X and LinkedIn.
 
 Choose **Public / Private** in the picker. New reactions remember your last choice across pages and browser restarts; opening an existing reaction chip keeps its visibility. Public reactions appear on the page for other extension users and at `reacji.to/YOUR_GITHUB_HANDLE`. Private reactions live in a private GitHub repository you own. Settings let you see **Everyone** or **People I follow on dev-null**, always including your own reactions.
 
@@ -23,7 +23,7 @@ For a complete walkthrough you can give to your agent, see [Set up reacji.to](SE
 3. Open the extension settings and **Connect GitHub**. Enter the displayed code on GitHub and authorize **reacji-to**. No personal access token is needed.
 4. For Private reactions, choose **Choose repositories on GitHub**, select **Only select repositories**, and install on your private reactions repo. **Create a new private repo** opens GitHub’s own creation form; choose Private, then install the app on it.
 5. Refresh the repository list in extension settings, select your private repo, and save.
-6. Reload your open webpages. Right-click a location, choose **👀 reacji to this**, select Public or Private, and choose an emoji.
+6. Reload your open webpages. Hold Option/Alt and click a location, select Public or Private, and choose an emoji.
 
 The extension checks for new stable GitHub releases on startup and during use, at most every 12 hours. A toolbar ↑ badge and an **Update available** notice in settings link to the download. You can also use **Check for updates** in settings. Unpacked extensions cannot install updates themselves: replace their files, click Reload on the extensions page, and reload open webpages. Checks use public release metadata without your GitHub token. Browser settings pages, the extension store, and other browser-protected pages cannot host reactions.
 

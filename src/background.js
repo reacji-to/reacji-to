@@ -1,12 +1,14 @@
 import { REPOSITORY, DATA_URL, GITHUB_APP_CLIENT_ID, SERVICE_URL, APP_INSTALL_URL } from './config.js';
 import { postRef, postKey, postPath, emptyPost, validDocument } from './posts.js';
 import { platformFor } from './adapters.js';
+import { createLinkedInResolver } from './linkedin.js';
 import { parseReaction, COMMIT_ID } from './protocol.js';
 import { createAuth } from './auth.js';
 import { canonicalUrl, verifyPagePost } from './web.js';
 import { loadFollowing, filterReactions } from './following.js';
 import { placeFromMenu } from './context-menu.js';
 import { createUpdateChecker } from './updates.js';
+import { senderPage } from './sender.js';
 
 // Tokens are never exposed through chrome.storage to content scripts.
 const ready = Promise.all([
@@ -24,6 +26,7 @@ const checkUpdates = async (force = false) => { await ready; return updates.chec
 const checkUpdatesQuietly = () => { void checkUpdates().catch(() => {}); };
 const cache = new Map();
 const reads = new Map();
+const resolveLinkedInPost = createLinkedInResolver();
 const auth = createAuth({ local: chrome.storage.local, session: chrome.storage.session, clientId: GITHUB_APP_CLIENT_ID });
 let mutation = Promise.resolve();
 let visibilityQueue = Promise.resolve();
@@ -99,10 +102,11 @@ async function readCommit(value) {
 async function handle(message, sender) {
   await ready;
   const trusted = sender.url === chrome.runtime.getURL('options.html');
-  const site = sender.tab && sender.url ? new URL(sender.url) : null;
+  const site = senderPage(sender);
   const platform = site && platformFor(site.hostname);
   const content = Boolean(site && ['https:', 'http:'].includes(site.protocol));
   if (!trusted && !content) throw new Error('Unsupported sender.');
+  if (message.type === 'linkedin-resolve' && platform === 'linkedin') return resolveLinkedInPost(message.urn);
   if (message.type === 'visibility-get') {
     const { lastVisibility } = await chrome.storage.local.get('lastVisibility');
     return { visibility: lastVisibility === 'private' ? 'private' : 'public' };
