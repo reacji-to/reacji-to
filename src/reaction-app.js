@@ -2,12 +2,28 @@ import { pickerLogo } from './brand.js';
 import { installQuickReaction } from './quick-reaction.js';
 import { pagePost, canonicalUrl, placementRef, placementUsers } from './web.js';
 import { capturePlacement, resolvePlacement } from './anchors.js';
+import { layoutActions, clearActions } from './action-layout.js';
 import { discoverPosts, platformFor } from './adapters.js';
 import { postKey } from './posts.js';
 import css from './content.css';
 import { currentDevNullUser } from './identity.js';
 import emojis from './emoji.json' with { type: 'json' };
 import { emojiValue, summarize, COMMIT_ID } from './protocol.js';
+import { frequentEmojis } from './emoji-frequency.js';
+
+// One stroke-icon vocabulary for the compact category strip.
+const emojiCategories = [
+  ['Frequently used', 'M12 8v4l3 2 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0'],
+  ['Smileys & Emotion', 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0 M8 14s1 3 4 3 4-3 4-3 M8 9h.01 M16 9h.01'],
+  ['People & Body', 'M8 21v-4H6v-5a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v5h-2v4 M15 4a3 3 0 1 1-6 0 3 3 0 0 1 6 0'],
+  ['Animals & Nature', 'M20 4C8 3 3 8 5 15c2 6 13 6 15-11Z M4 21 15 10'],
+  ['Food & Drink', 'M4 3v5a3 3 0 0 0 6 0V3 M7 3v18 M17 21V3c-4 3-4 9 0 9h2V3'],
+  ['Travel & Places', 'm3 17 3-8h12l3 8v3h-3v-3H6v3H3v-3Z M5 13h14 M7 16h.01 M17 16h.01'],
+  ['Activities', 'M8 3h8v6a4 4 0 0 1-8 0V3Z M8 5H4v3a4 4 0 0 0 4 4 M16 5h4v3a4 4 0 0 1-4 4 M12 13v7 M8 21h8'],
+  ['Objects', 'M9 18h6 M9 21h6 M8 14a6 6 0 1 1 8 0c-1 1-1 2-1 2H9s0-1-1-2'],
+  ['Symbols', 'm12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9L7.5 14 3 9.6l6.2-.9L12 3Z'],
+  ['Flags', 'M5 21V3 M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0'],
+];
 
 export function initializeReactions({ runtime, discover = discoverPosts, beforePlace = () => {} } = {}) {
 if (globalThis.__reacjiToContentReady) return;
@@ -79,7 +95,11 @@ function host() {
   return { el, shadow };
 }
 function theme(el) {
-  el.toggleAttribute('data-dark', document.documentElement.classList.contains('dark') || document.documentElement.dataset.theme === 'dark' || (platform !== 'devnull' && (() => { const c = getComputedStyle(document.body).backgroundColor.match(/\d+/g); return c && c.length >= 3 && Number(c[0]) + Number(c[1]) + Number(c[2]) < 220; })()));
+  const root = document.documentElement;
+  const background = [document.body, root].map(node => getComputedStyle(node).backgroundColor.match(/[\d.]+/g))
+    .find(color => color?.length >= 3 && (color.length < 4 || Number(color[3]) > 0));
+  el.toggleAttribute('data-dark', root.classList.contains('dark') || root.dataset.theme === 'dark'
+    || Boolean(background && background.slice(0, 3).reduce((sum, value) => sum + Number(value), 0) < 220));
 }
 const overlay = host();
 document.body.append(overlay.el);
@@ -105,15 +125,16 @@ function notify(message, url, retry) {
 function display(record) {
   if (record.dragging) return;
   if (active?.record === record) active.updateRemoval?.();
-  const social = ['x', 'linkedin'].includes(record.post.platform);
   const focused = record.el.shadowRoot.activeElement;
   const focusedLabel = focused?.classList.contains('chip') ? focused.getAttribute('aria-label') : null;
+  record.el.dataset.visibility = record.visibility || 'public';
   record.chips.replaceChildren();
+  record.slot?.querySelectorAll('.chip').forEach(chip => chip.remove());
   for (const group of summarize({ users: usersFor(record) }, actor?.id)) {
     const button = element('button', { type: 'button', class: 'chip', 'aria-pressed': String(group.mine),
       'aria-label': `${record.visibility === 'private' ? 'Private: ' : ''}${group.emoji}, ${group.count} reaction${group.count === 1 ? '' : 's'}${group.mine ? ', yours' : ''}. ${record.placement ? 'Change reaction' : group.mine ? 'Remove reaction' : 'React with this emoji'}`,
       title: `${group.people.slice(0, 12).map(name => `@${name}`).join(', ')}${group.people.length > 12 ? '…' : ''}` });
-    button.append(document.createTextNode(`${record.visibility === 'private' ? '🔒 ' : ''}${group.emoji}`));
+    button.append(document.createTextNode(group.emoji));
     if (record.placement) { button.setAttribute('aria-haspopup', 'dialog'); button.setAttribute('aria-expanded', String(active?.record === record)); }
 
     if (record.placement && group.mine) { button.classList.add('movable'); button.title += ' · Option/Alt-click to clear · Drag to move'; }
@@ -125,12 +146,13 @@ function display(record) {
         event.preventDefault(); choose(record, null);
       } else record.placement ? openPicker(record, true) : choose(record, group.mine ? null : group.emoji);
     });
-    record.chips.append(button);
+    (group.mine && record.slot ? record.slot : record.chips).append(button);
   }
-  if (focusedLabel) [...record.chips.children].find(button => button.getAttribute('aria-label') === focusedLabel)?.focus({ preventScroll: true });
+  if (focusedLabel) [...record.el.shadowRoot.querySelectorAll('.chip')].find(button => button.getAttribute('aria-label') === focusedLabel)?.focus({ preventScroll: true });
   record.button.title = 'reacji.to';
   record.el.setAttribute('aria-busy', String(optimistic.has(mutationKey(record, record.visibility || 'public'))));
-  if (social) record.button.hidden = Boolean(usersFor(record)[actor?.id]?.emoji);
+  record.button.hidden = Boolean(usersFor(record)[actor?.id]?.emoji);
+  if (!record.placement) layoutActions(record.anchor, record.el, record.article);
   if (record.placement) {
     record.button.hidden = record.chips.childElementCount > 0;
     const present = Object.values(usersFor(record,false)).some(u=>u.emoji) || Object.values(usersFor(record,true)).some(u=>u.emoji);
@@ -161,7 +183,7 @@ async function refresh(record) {
   } catch (error) { if (revision === dataRevision && record.visibility === visibility) { record.error = error.message; display(record); } }
   finally { record.loading.delete(visibility); }
 }
-function choose(record, emoji, placement = record.placement) {
+function choose(record, emoji, placement = record.placement, { trackUsage = true } = {}) {
   const generation = privateGeneration;
   const visibility = record.visibility || 'public';
   rememberVisibility(visibility);
@@ -184,7 +206,7 @@ function choose(record, emoji, placement = record.placement) {
       const identity = await siteIdentity();
       const target = emoji === null && move ? move.committed : placement;
       const moveFrom = move && emoji !== null && move.committed.id !== target.id ? move.committed.id : null;
-      const result = await send({ type: 'react', event: { version: 1, commit: record.post.id, post: record.post, ...(target ? { placement: target } : {}), ...(moveFrom ? { moveFrom } : {}), emoji }, visibility, ...identity });
+      const result = await send({ type: 'react', event: { version: 1, commit: record.post.id, post: record.post, ...(target ? { placement: target } : {}), ...(moveFrom ? { moveFrom } : {}), emoji }, visibility, trackUsage, ...identity });
       if (move) move.committed = target;
       actor = result.actor || actor;
       let savedDocument = result.document;
@@ -206,7 +228,7 @@ function choose(record, emoji, placement = record.placement) {
         if (move) record.placement = move.committed;
         notify(`${error.message} Previous reaction restored.`, null, () => {
           record.visibility = visibility;
-          choose(record, emoji, placement);
+          choose(record, emoji, placement, { trackUsage });
         });
       }
     } finally {
@@ -252,20 +274,25 @@ async function openPicker(record, preserveVisibility = false, { focus = true } =
   }
   const panel = element('section', { class: 'panel', popover: 'auto', role: 'dialog', 'aria-label': 'Choose a reaction' });
   const head = element('div', { class: 'head' });
-  const identity = element('span', { class: 'identity' }, actor?.login ? ` @${actor.login}` : '');
+  const identity = element('span', { class: 'identity', title: actor?.login ? `@${actor.login}` : '' }, actor?.login ? `@${actor.login}` : '');
   const title = element('strong', {}, 'reacji.to');
-  title.append(identity);
   const controls = element('div', { class: 'controls' });
   const search = element('input', { class: 'search', type: 'search', placeholder: 'Search or paste any emoji', 'aria-label': 'Search or paste any emoji' });
-  const category = element('select', { class: 'category', 'aria-label': 'Emoji category' });
-  category.append(element('option', { value: '' }, 'All emoji'));
-  for (const group of new Set(emojis.map(item => item.group))) category.append(element('option', { value: group }, group));
-  controls.append(search, category);
+  const categories = element('div', { class: 'categories', role: 'toolbar', 'aria-label': 'Emoji categories' });
+  const categoryButtons = emojiCategories.map(([name, path], index) => {
+    const button = element('button', { class: 'category', type: 'button', 'aria-label': name, title: name, 'aria-pressed': String(index === 0), tabindex: index === 0 ? '0' : '-1' });
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('viewBox', '0 0 24 24'); icon.setAttribute('aria-hidden', 'true');
+    const shape = document.createElementNS(icon.namespaceURI, 'path');
+    shape.setAttribute('d', path); icon.append(shape); button.append(icon); categories.append(button);
+    return button;
+  });
+  controls.append(search);
   const grid = element('div', { class: 'grid', 'aria-label': 'Emoji choices' });
   const status = element('p', { class: 'status', role: 'status', 'aria-live': 'polite' }, record.error || '');
   const settings = element('button', { class: 'link', type: 'button' }, 'Settings');
   settings.addEventListener('click', event => { if (event.isTrusted) send({ type: 'options' }).catch(error => { status.textContent = error.message; }); });
-  head.append(title, settings);
+  head.append(title, identity, settings);
   const visibility = element('div', { class: 'visibility', role: 'group', 'aria-label': 'Reaction visibility' });
   const publicButton = element('button', { type: 'button', 'aria-pressed': String(record.visibility !== 'private') }, 'Public');
   const privateButton = element('button', { type: 'button', 'aria-pressed': String(record.visibility === 'private') }, 'Private');
@@ -300,35 +327,83 @@ async function openPicker(record, preserveVisibility = false, { focus = true } =
   privateButton.addEventListener('click', event => { if (event.isTrusted) switchScope('private'); });
   visibility.append(publicButton, privateButton);
   updateScope();
-  panel.append(head, visibility, removal, controls, grid, status);
+  panel.append(categories, head, visibility, removal, controls, grid, status);
   overlay.shadow.append(panel);
   active = { record, panel, status, updateRemoval };
   record.button.setAttribute('aria-expanded', 'true');
   let limit = 96;
+  let usage = [], sections = [];
+  const setCategory = index => categoryButtons.forEach((button, at) => {
+    button.setAttribute('aria-pressed', String(at === index));
+    button.tabIndex = at === index ? 0 : -1;
+  });
+  const makeEmoji = item => {
+    const button = element('button', { class: 'emoji', type: 'button', 'aria-label': item.name, title: item.name }, item.emoji);
+    button.addEventListener('click', event => {
+      if (!event.isTrusted) return;
+      const mine = usersFor(record)[actor?.id]?.emoji;
+      choose(record, mine === item.emoji ? null : item.emoji);
+    });
+    return button;
+  };
   const draw = () => {
     const query = search.value.trim().toLowerCase();
     const pasted = emojiValue(query);
-    const results = emojis.filter(item => pasted ? item.emoji === pasted : (!category.value || item.group === category.value) && `${item.name} ${item.group}`.toLowerCase().includes(query));
+    sections = [];
     grid.replaceChildren();
-    for (const item of results.slice(0, limit)) {
-      const button = element('button', { class: 'emoji', type: 'button', 'aria-label': item.name, title: item.name }, item.emoji);
-      button.addEventListener('click', event => {
-        if (!event.isTrusted) return;
-        const mine = usersFor(record)[actor?.id]?.emoji;
-        choose(record, mine === item.emoji ? null : item.emoji);
-      });
-      grid.append(button);
-    }
-    if (!results.length) grid.append(element('div', { class: 'empty' }, 'No emoji found. Try “heart”, “flag”, or paste an emoji.'));
-    if (results.length > limit) {
-      const more = element('button', { class: 'more', type: 'button' }, `Show more · ${results.length - limit} remaining`);
-      more.addEventListener('click', () => { const previous = limit; limit += 96; draw(); grid.querySelectorAll('.emoji')[previous]?.focus(); });
-      grid.append(more);
+    const addSection = (name, items) => {
+      const section = element('section', { class: 'emoji-section', 'aria-label': name });
+      section.append(element('h3', { class: 'category-heading' }, name));
+      const choices = element('div', { class: 'emoji-choices' });
+      choices.append(...items.map(makeEmoji)); section.append(choices); grid.append(section); sections.push(section);
+    };
+    if (!query) {
+      const byEmoji = new Map(emojis.map(item => [item.emoji, item]));
+      addSection('Frequently used', frequentEmojis(usage).map(value => byEmoji.get(value)).filter(Boolean));
+      for (const [name] of emojiCategories.slice(1)) addSection(name, emojis.filter(item => item.group === name));
+      setCategory(0);
+    } else {
+      const results = emojis.filter(item => pasted ? item.emoji === pasted : `${item.name} ${item.group}`.toLowerCase().includes(query));
+      setCategory(-1);
+      categoryButtons[0].tabIndex = 0;
+      addSection('Search results', results.slice(0, limit));
+      if (!results.length) grid.append(element('div', { class: 'empty' }, 'No emoji found. Try “heart”, “flag”, or paste an emoji.'));
+      if (results.length > limit) {
+        const more = element('button', { class: 'more', type: 'button' }, `Show more · ${results.length - limit} remaining`);
+        more.addEventListener('click', () => { const previous = limit; limit += 96; draw(); grid.querySelectorAll('.emoji')[previous]?.focus(); });
+        grid.append(more);
+      }
     }
     positionPicker();
   };
+  categoryButtons.forEach((button, index) => {
+    button.addEventListener('click', () => {
+      if (search.value) { search.value = ''; draw(); }
+      grid.scrollTop = sections[index].offsetTop - grid.offsetTop;
+      setCategory(index);
+    });
+  });
+  categories.addEventListener('keydown', event => {
+    const at = categoryButtons.indexOf(event.target);
+    if (at < 0) return;
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? categoryButtons.length - 1
+      : event.key === 'ArrowRight' ? (at + 1) % categoryButtons.length
+      : event.key === 'ArrowLeft' ? (at + categoryButtons.length - 1) % categoryButtons.length : null;
+    if (next !== null) { event.preventDefault(); categoryButtons[next].focus(); categoryButtons[next].click(); }
+  });
+  grid.addEventListener('scroll', () => {
+    if (search.value) return;
+    let index = 0;
+    sections.forEach((section, at) => {
+      if (section.offsetTop - grid.offsetTop <= grid.scrollTop + 2) index = at;
+    });
+    setCategory(index);
+  });
   search.addEventListener('input', () => { limit = 96; grid.scrollTop = 0; draw(); });
-  category.addEventListener('change', () => { limit = 96; grid.scrollTop = 0; draw(); });
+  void send({ type: 'emoji-usage-get' }).then(result => {
+    usage = result.usage || [];
+    if (active?.panel === panel && !search.value && grid.scrollTop === 0 && !grid.contains(overlay.shadow.activeElement)) draw();
+  }).catch(() => { /* Fall back to common reactions if preferences are unavailable. */ });
   grid.addEventListener('keydown', event => {
     const buttons = [...grid.querySelectorAll('button')];
     const at = buttons.indexOf(event.target);
@@ -339,7 +414,7 @@ async function openPicker(record, preserveVisibility = false, { focus = true } =
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); closePicker(); }
     if (event.key === 'Tab') {
-      const controls = [...panel.querySelectorAll('button:not(:disabled),input,select')].filter(control => control.getClientRects().length);
+      const controls = [...panel.querySelectorAll('button:not(:disabled):not([tabindex="-1"]),input,select')].filter(control => control.getClientRects().length);
       const first = controls[0], last = controls.at(-1);
       if (event.shiftKey && overlay.shadow.activeElement === first) { event.preventDefault(); last.focus(); }
       if (!event.shiftKey && overlay.shadow.activeElement === last) { event.preventDefault(); first.focus(); }
@@ -351,7 +426,8 @@ async function openPicker(record, preserveVisibility = false, { focus = true } =
   try {
     const state = await send({ type: 'status' });
     actor = state.actor;
-    identity.textContent = actor?.login ? ` @${actor.login}` : '';
+    identity.textContent = actor?.login ? `@${actor.login}` : '';
+    identity.title = identity.textContent;
     if (active?.panel === panel) status.textContent = state.followingError || (state.connected ? '' : state.authError || 'Connect GitHub in settings before reacting.');
     updateScope();
     for (const r of records.values()) display(r);
@@ -369,13 +445,17 @@ function scan() {
   for (const [el, record] of records) {
     if (record.placement) continue;
     const current = posts.find(p => p.anchor === record.anchor && postKey(p.post) === record.id);
-    if (!el.isConnected || !current) { observer.unobserve(el); records.delete(el); el.remove(); if (active?.record === record) closePicker(); }
+    if (!el.isConnected || !current) { clearActions(record.anchor); observer.unobserve(el); records.delete(el); el.remove(); if (active?.record === record) closePicker(); }
   }
   for (const { article, anchor, post, inline } of posts) {
     if ([...records.values()].some(r => r.anchor === anchor)) continue;
     addRecord({ article, anchor, post, inline });
   }
   positionPins();
+  positionActions();
+}
+function positionActions() {
+  for (const record of records.values()) if (!record.placement) layoutActions(record.anchor, record.el, record.article);
 }
 function addRecord({ article, anchor, post, inline, placement, pending = false }) {
     const { el, shadow } = host();
@@ -384,10 +464,12 @@ function addRecord({ article, anchor, post, inline, placement, pending = false }
     const button = element('button', { class: 'trigger', type: 'button', title: 'reacji.to', 'aria-label': 'React with an emoji', 'aria-haspopup': 'dialog', 'aria-expanded': 'false' });
     button.append(element('img', { src: pickerLogo, width: 16, height: 16, alt: '', 'aria-hidden': 'true' }));
     const chips = element('span', { class: 'bar' });
-    bar.append(button, chips); shadow.append(bar);
-    if (placement) { document.body.append(el); el.style.cssText = 'position:absolute;z-index:2147483000;'; bar.classList.add('pin'); }
+    const slot = placement ? null : element('span', { class: 'reaction-slot' });
+    if (slot) slot.append(button);
+    bar.append(slot || button, chips); shadow.append(bar);
+    if (placement) { document.documentElement.append(el); el.style.cssText = 'position:absolute;z-index:2147483000;'; bar.classList.add('pin'); }
     else anchor.after(el);
-    const record = { id: postKey(post) + (placement ? `:${placement.id}` : ''), post, article, anchor, el, button, chips, placement, pending, data: null, privateData: null, visibility: 'public', visible: false };
+    const record = { id: postKey(post) + (placement ? `:${placement.id}` : ''), post, article, anchor, el, button, chips, slot, placement, pending, data: null, privateData: null, visibility: 'public', visible: false };
     if (placement) { record.mutationId = crypto.randomUUID(); wirePinDrag(record, bar); }
     records.set(el, record);
     bar.addEventListener('click', event => event.stopPropagation());
@@ -422,7 +504,7 @@ function wirePinDrag(record, bar) {
       try {
         const x = state.left + state.width / 2, y = state.top + state.height / 2;
         const target = document.elementsFromPoint(x, y).find(el => !el.closest('reacji-to-reactions,reacji-page-menu,reacji-demo-picker'));
-        const placement = { ...capturePlacement(target, x, y), mode: 'point' };
+        const placement = capturePlacement(target, x, y);
         movePin(record, placement);
       } catch (error) { notify(error.message); }
     }
@@ -443,8 +525,7 @@ function wirePinDrag(record, bar) {
     event.preventDefault();
     drag.left = Math.max(8, Math.min(event.clientX - drag.dx, innerWidth - drag.width - 8));
     drag.top = Math.max(8, Math.min(event.clientY - drag.dy, innerHeight - drag.height - 8));
-    record.el.style.left = `${scrollX + drag.left}px`;
-    record.el.style.top = `${scrollY + drag.top}px`;
+    positionPin(record.el, drag.left, drag.top);
   });
   record.el.addEventListener('pointerup', event => finish(event));
   record.el.addEventListener('pointercancel', event => finish(event, true));
@@ -452,6 +533,14 @@ function wirePinDrag(record, bar) {
   document.addEventListener('keydown', event => { if (drag && event.key === 'Escape') { event.preventDefault(); finish(event, true); } });
 }
 
+// Use the actual absolute-position origin, which may differ from the document
+// origin on styled pages. Pins live outside body positioning and transforms.
+function positionPin(el, left, top) {
+  el.style.left = '0px'; el.style.top = '0px';
+  const origin = el.getBoundingClientRect();
+  el.style.left = `${left - origin.left}px`;
+  el.style.top = `${top - origin.top}px`;
+}
 function positionPins() {
   for (const record of records.values()) if (record.placement) {
     if (record.dragging) continue;
@@ -463,11 +552,9 @@ function positionPins() {
     const pin = record.el.getBoundingClientRect();
     const point = box.left + box.width * record.placement.x / 1000;
     const left = Math.max(8, Math.min(point - pin.width / 2, innerWidth - pin.width - 8));
-    const above = box.bottom + pin.height + 16 > innerHeight && box.top - pin.height - 8 >= 8;
-    record.el.toggleAttribute('data-above', above);
-    record.el.style.setProperty('--anchor-x', `${Math.max(8, Math.min(point - left, pin.width - 8))}px`);
-    record.el.style.left = `${scrollX + left}px`;
-    record.el.style.top = `${scrollY + (record.placement.mode === 'point' ? box.top + box.height * record.placement.y / 1000 - pin.height / 2 : above ? box.top - pin.height - 8 : box.bottom + 8)}px`;
+    // Legacy placements also captured y; honor that click instead of snapping
+    // above or below the entire element (which can be an arbitrarily tall page).
+    positionPin(record.el, left, box.top + box.height * record.placement.y / 1000 - pin.height / 2);
   }
 }
 function reconcilePins() {
@@ -547,9 +634,9 @@ function scheduleScan() {
 new MutationObserver(mutations => {
   if (mutations.every(mutation => mutation.target.closest?.('reacji-to-reactions'))) return;
   scheduleScan();
-}).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['href', 'data-urn', 'data-id', 'data-commit', 'componentkey', 'class', 'style'] });
+}).observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['href', 'data-urn', 'data-id', 'data-commit', 'componentkey', 'class', 'style'] });
 new MutationObserver(() => { theme(overlay.el); for (const record of records.values()) theme(record.el); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
-addEventListener('resize', () => { positionPins(); positionPicker(); });
+addEventListener('resize', () => { positionPins(); positionActions(); positionPicker(); });
 addEventListener('scroll', () => { positionPins(); positionPicker(); if (platform === 'linkedin') scheduleScan(); }, { passive: true, capture: true });
 setInterval(() => { pageChanged(); if (!document.hidden) { loadPage(); for (const record of records.values()) if (record.visible && !record.placement) refresh(record); } }, 30000);
 addEventListener('popstate',pageChanged); addEventListener('hashchange',pageChanged);

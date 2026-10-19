@@ -8,6 +8,7 @@ import { canonicalUrl, verifyPagePost } from './web.js';
 import { loadFollowing, filterReactions } from './following.js';
 import { createUpdateChecker } from './updates.js';
 import { senderPage } from './sender.js';
+import { normalizeUsage, recordEmojiUse } from './emoji-frequency.js';
 
 // Tokens are never exposed through chrome.storage to content scripts.
 const ready = Promise.all([
@@ -106,6 +107,10 @@ async function handle(message, sender) {
   const content = Boolean(site && ['https:', 'http:'].includes(site.protocol));
   if (!trusted && !content) throw new Error('Unsupported sender.');
   if (message.type === 'linkedin-resolve' && platform === 'linkedin') return resolveLinkedInPost(message.urn);
+  if (message.type === 'emoji-usage-get') {
+    const { emojiUsage } = await chrome.storage.local.get('emojiUsage');
+    return { usage: normalizeUsage(emojiUsage) };
+  }
   if (message.type === 'visibility-get') {
     const { lastVisibility } = await chrome.storage.local.get('lastVisibility');
     return { visibility: lastVisibility === 'private' ? 'private' : 'public' };
@@ -197,6 +202,13 @@ async function handle(message, sender) {
     if (!['public', 'private'].includes(message.visibility)) throw new Error('Choose Public or Private.');
     const result = await service('/v1/react', token, { event, visibility: message.visibility, username: message.username, githubId: message.githubId,
       ...(message.visibility === 'private' ? { repository } : {}), requestId: crypto.randomUUID() });
+    if (event.emoji && !event.moveFrom && message.trackUsage !== false) {
+      // A preference-storage failure must never roll back a committed reaction.
+      try {
+        const { emojiUsage } = await chrome.storage.local.get('emojiUsage');
+        await chrome.storage.local.set({ emojiUsage: recordEmojiUse(emojiUsage, event.emoji) });
+      } catch { /* Reactions remain usable when preference storage is unavailable. */ }
+    }
     if (message.visibility === 'public') {
       cache.delete(postKey(post));
       if (result.document) cache.set(postKey(post), { value: result.document, until: Date.now() + 30000 });

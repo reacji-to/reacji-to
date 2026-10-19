@@ -30,7 +30,8 @@ test('saved pins show only emoji; changes and removals are optimistic and roll b
   await page.setViewportSize({width:390,height:844});
   await chip.focus();await page.keyboard.press('Enter');
   await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.locator('.head strong')).toHaveText('reacji.to @octocat');
+  await expect(page.locator('.head strong')).toHaveText('reacji.to');
+  await expect(page.locator('.head .identity')).toHaveText('@octocat');
   await expect(page.getByRole('button',{name:'Settings',exact:true})).toBeVisible();
   await expect(page.locator('.footer')).toHaveCount(0);
   await page.getByRole('dialog').screenshot({path:'artifacts/picker-header.png'});
@@ -84,13 +85,13 @@ test('Option-click placement persists, follows DOM movement, hides on mismatch, 
   await load();await expect(page.getByRole('button',{name:/💙, 1 reaction/})).toBeVisible();
   await page.locator('#target').evaluate(p=>{const before=document.createElement('p');before.textContent='A newly inserted paragraph.';p.before(before);});
   await expect(page.getByRole('button',{name:/💙, 1 reaction/})).toBeVisible();
-  await expect.poll(async()=>{const target=await page.locator('#target').boundingBox(),pin=await page.locator('.pin .chip').first().boundingBox();return pin && pin.y>=target.y+target.height;}).toBe(true);
+  await expect.poll(async()=>{const target=await page.locator('#target').boundingBox(),pin=await page.locator('.pin .chip').first().boundingBox();return pin && Math.abs(pin.y+pin.height/2-(target.y+target.height/2))<2;}).toBe(true);
   await page.locator('.pin .chip').first().click();await page.getByRole('button',{name:'Private',exact:true}).click();await page.getByRole('searchbox').fill('🔥');await page.getByRole('button',{name:'fire',exact:true}).click();
   await expect(page.getByRole('button',{name:/Private: 🔥, 1 reaction/})).toBeVisible();expect(docs.public.values().next().value.placements[writes[0].event.placement.id].users[42].emoji).toBe('💙');
   await page.screenshot({path:'artifacts/web-placement.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   await page.locator('#target').evaluate(p=>{p.style.marginLeft='240px';p.style.width='80px';p.style.padding='8px';});
-  await expect.poll(async()=>{const pin=await page.locator('.pin .chip').first().boundingBox();const target=await page.locator('#target').boundingBox();return pin && pin.x>=0 && pin.x+pin.width<=390 && pin.y>=target.y+target.height;}).toBe(true);
+  await expect.poll(async()=>{const pin=await page.locator('.pin .chip').first().boundingBox();const target=await page.locator('#target').boundingBox();return pin && pin.x>=0 && pin.x+pin.width<=390 && Math.abs(pin.y+pin.height/2-(target.y+target.height/2))<2;}).toBe(true);
   await page.screenshot({path:'.impeccable/review/web-placement-mobile.png',fullPage:true});
   await page.locator('#target').evaluate(p=>{p.style.marginTop='900px';});
   await page.locator('#target').scrollIntoViewIfNeeded();
@@ -184,32 +185,79 @@ test('drag moves only my reaction, saves atomically, survives reload and does no
   });
   await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:m=>window.testSend(m),onMessage:{addListener:fn=>window.fromBackground=fn}}};});
   const load=async()=>{await page.goto('https://example.test/');await page.addScriptTag({path:'dist/content.js'});};
+  const box=async locator=>{let value;await expect.poll(async()=>{value=await locator.boundingBox();return Boolean(value);}).toBe(true);return value;};
   await load();
   const mine=page.locator('.pin .chip').filter({hasText:'💙'}),other=page.locator('.pin .chip').filter({hasText:'🔥'});
   await expect(mine).toHaveClass(/movable/);await expect(other).not.toHaveClass(/movable/);
-  const before=await mine.boundingBox(),otherBefore=await other.boundingBox(),drop=await page.locator('#drop').boundingBox();
+  const before=await box(mine),otherBefore=await box(other),drop=await page.locator('#drop').boundingBox();
   await page.mouse.move(before.x+before.width/2,before.y+before.height/2);await page.mouse.down();
   await page.mouse.move(drop.x+drop.width*.6,drop.y+drop.height*.5,{steps:8});await page.mouse.up();
   await expect(page.getByRole('dialog')).toHaveCount(0);await expect.poll(()=>writes.length).toBe(1);
   expect(writes[0].event.moveFrom).toBe(anchor.id);expect(writes[0].event.placement.mode).toBe('point');expect(writes[0].event.placement.quote).toBe('Drop here');
-  const moved=await mine.boundingBox();expect(moved.y).toBeGreaterThan(before.y+100);
-  expect((await other.boundingBox()).y).toBeCloseTo(otherBefore.y,0);
+  const moved=await box(mine);expect(moved.y).toBeGreaterThan(before.y+100);
+  // Reconciliation can replace the chip between locator resolution and measurement.
+  await expect.poll(async()=> (await box(other))?.y).toBeCloseTo(otherBefore.y,0);
   finish(true);await expect.poll(()=>Boolean(doc.placements[writes[0].event.placement.id])).toBe(true);
-  await load();await expect(mine).toBeVisible();expect((await mine.boundingBox()).y).toBeCloseTo(moved.y,0);
+  await load();await expect(mine).toBeVisible();expect((await box(mine)).y).toBeCloseTo(moved.y,0);
   // Two fast drops stay at the newest point, even when the earlier save fails.
-  const dragTo=async(x,y)=>{const b=await mine.boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.mouse.move(x,y,{steps:6});await page.mouse.up();};
+  const dragTo=async(x,y)=>{const b=await box(mine);await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.mouse.move(x,y,{steps:6});await page.mouse.up();};
   await dragTo(300,220);await expect.poll(()=>writes.length).toBe(2);
   await dragTo(drop.x+drop.width*.35,drop.y+drop.height*.65);
-  const newest=await mine.boundingBox();finish(false);await expect.poll(()=>writes.length).toBe(3);
-  expect((await mine.boundingBox()).y).toBeCloseTo(newest.y,0);
+  const newest=await box(mine);finish(false);await expect.poll(()=>writes.length).toBe(3);
+  expect((await box(mine)).y).toBeCloseTo(newest.y,0);
   expect(writes[2].event.moveFrom).toBe(writes[0].event.placement.id);
   finish(true);await expect.poll(()=>Boolean(doc.placements[writes[2].event.placement.id])).toBe(true);
   // Failed writes restore the last committed position, not the original placement.
-  const current=await mine.boundingBox();await page.mouse.move(current.x+current.width/2,current.y+current.height/2);await page.mouse.down();await page.mouse.move(300,220,{steps:8});await page.mouse.up();
+  const current=await box(mine);await page.mouse.move(current.x+current.width/2,current.y+current.height/2);await page.mouse.down();await page.mouse.move(300,220,{steps:8});await page.mouse.up();
   await expect.poll(()=>writes.length).toBe(4);finish(false);
   await expect(page.getByText(/Previous reaction restored/)).toBeVisible();
-  await expect.poll(async()=>Math.abs((await mine.boundingBox()).y-current.y)).toBeLessThan(2);
+  await expect.poll(async()=>{const b=await box(mine);return b ? Math.abs(b.y-current.y) : Infinity;}).toBeLessThan(2);
   // A click remains a click, and Escape cancels a drag without committing.
   await mine.click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');
-  const b=await mine.boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.mouse.move(250,250,{steps:5});await page.keyboard.press('Escape');await page.mouse.up();expect(writes).toHaveLength(4);
+  const b=await box(mine);await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.mouse.move(250,250,{steps:5});await page.keyboard.press('Escape');await page.mouse.up();expect(writes).toHaveLength(4);
+});
+
+for (const [layout, styles] of [
+  ['ordinary', ''],
+  ['positioned', 'html{position:relative;top:25px}body{position:relative;top:40px;border:12px solid #ddd}'],
+  ['transformed', 'body{transform:translate(30px,40px) scale(.9);transform-origin:top left}'],
+]) test(`page reactions stay at the clicked point on ${layout} pages, through scrolling and reload`, async({page})=>{
+  let doc={users:{},placements:{}};
+  const html=`<style>body{margin:60px;padding:30px;font:20px sans-serif;height:2400px}#target{margin-top:400px;width:600px;height:1200px;background:#eee}${styles}</style><section id="target">A tall section with a reaction near its top.</section>`;
+  await page.route('https://example.test/**',r=>r.fulfill({body:html,contentType:'text/html'}));
+  await page.exposeFunction('testSend',m=>{
+    if(m.type==='status')return {ok:true,value:{connected:true,actor:{id:42,login:'octocat'}}};
+    if(m.type==='react'){
+      const anchor=m.event.placement;
+      doc={users:{},placements:{[anchor.id]:{anchor,users:{42:{login:'octocat',emoji:m.event.emoji}}}}};
+      return {ok:true,value:{actor:{id:42,login:'octocat'},document:doc}};
+    }
+    return {ok:true,value:doc};
+  });
+  await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:m=>window.testSend(m),onMessage:{addListener(){}}}};});
+  const load=async()=>{await page.goto('https://example.test/');await page.addScriptTag({path:'dist/content.js'});await page.evaluate(()=>scrollTo(0,300));};
+  await load();
+  const target=page.locator('#target'),chip=page.locator('.pin .chip');
+  const bounds=await target.boundingBox(),point={x:bounds.x+bounds.width*.35,y:bounds.y+bounds.height*.1};
+  await page.keyboard.down('Alt');await page.mouse.click(point.x,point.y);await page.keyboard.up('Alt');
+  const eyesBox=await page.locator('.pin .trigger').boundingBox();
+  await page.getByRole('searchbox').fill('💙');await page.getByRole('button',{name:'blue heart',exact:true}).click();
+  const assertPosition=async()=>{
+    await expect(chip).toBeVisible();
+    await expect.poll(async()=>{
+      const b=await target.boundingBox(),c=await chip.boundingBox();
+      return !b || !c ? Infinity : Math.max(Math.abs(c.x+c.width/2-(b.x+b.width*.35)),Math.abs(c.y+c.height/2-(b.y+b.height*.1)));
+    }).toBeLessThan(2);
+  };
+  await assertPosition();
+  const chipBox=await chip.boundingBox();
+  expect(chipBox.width).toBe(eyesBox.width);expect(chipBox.height).toBe(eyesBox.height);
+  await expect.poll(()=>Object.keys(doc.placements).length).toBe(1);
+  expect(Object.values(doc.placements)[0].anchor.mode).toBe('point');
+  await page.evaluate(()=>scrollBy(0,75));await assertPosition();
+  await load();await assertPosition();
+  // Older reactions already stored the click coordinates and should use them too.
+  delete Object.values(doc.placements)[0].anchor.mode;
+  await load();await assertPosition();
+  if(layout==='positioned')await page.screenshot({path:'artifacts/placement-at-click.png'});
 });

@@ -12,7 +12,7 @@ export function capturePlacement(target, x, y) {
     parts.unshift(`${tag}:nth-of-type(${siblings.indexOf(el)+1})`);
   }
   const box = target.getBoundingClientRect();
-  return placementRef({ id: crypto.randomUUID(), selector: parts.join(' > '), tag: target.localName, quote: text(target),
+  return placementRef({ id: crypto.randomUUID(), selector: parts.join(' > '), tag: target.localName, quote: text(target), mode: 'point',
     x: Math.round(Math.max(0, Math.min(1, (x - box.left) / Math.max(1,box.width))) * 1000),
     y: Math.round(Math.max(0, Math.min(1, (y - box.top) / Math.max(1,box.height))) * 1000) });
 }

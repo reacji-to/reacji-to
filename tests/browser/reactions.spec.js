@@ -21,6 +21,7 @@ test('nested dev-null replies use their own permalink and eyes sit outside the S
   await expect(reply.getByRole('button',{name:'React with an emoji'})).toHaveAttribute('title','reacji.to');
   await reply.getByRole('button',{name:'React with an emoji'}).click();
   await page.getByRole('searchbox').fill('🤪');await page.getByRole('button',{name:'zany face',exact:true}).click();
+  await expect(reply.locator('.trigger')).toBeHidden();
   await expect(reply.locator('.chip')).toContainText('🤪');await expect(parent.locator('.chip')).toHaveCount(0);
   await expect.poll(()=>page.evaluate(()=>sent.filter(m=>m.type==='react').length)).toBe(1);
   expect(await page.evaluate(()=>sent.find(m=>m.type==='react').event.post)).toEqual({platform:'devnull',id:child,author:'child'});
@@ -56,10 +57,15 @@ test('eyes icon sits immediately beside the star; search, react, change, remove'
   await page.getByRole('button', { name: 'woman technologist: medium-dark skin tone', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(first.getByRole('button', { name: /👩🏾‍💻.*yours/ })).toBeVisible();
+  await expect(first.locator('.trigger')).toBeHidden();
+  await page.evaluate(() => document.documentElement.style.setProperty('--accent', '#2457ed'));
+  await page.mouse.move(0, 0);
+  await expect(first.locator('.chip[aria-pressed=true]')).toHaveCSS('background-color', 'rgb(238, 240, 242)');
   await first.getByRole('button', { name: /🔥, 1 reaction/ }).click();
   await expect(first.getByRole('button', { name: /🔥, 2 reactions, yours/ })).toBeVisible();
   await first.getByRole('button', { name: /🔥, 2 reactions, yours/ }).click();
   await expect(first.getByRole('button', { name: /🔥, 1 reaction/ })).toBeVisible();
+  await expect(first.locator('.trigger')).toBeVisible();
   await expect.poll(() => page.evaluate(() => sent.filter(m => m.type === 'react').map(m => m.event.emoji))).toEqual(['👩🏾‍💻', '🔥', null]);
 });
 test('keyboard, pasting multi-codepoint emoji, and empty search', async ({ page }) => {
@@ -75,6 +81,29 @@ test('keyboard, pasting multi-codepoint emoji, and empty search', async ({ page 
   await search.press('Escape');
   await expect(trigger).toBeFocused();
   await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+test('category strip is above search, opens with frequents, and supports category and search navigation', async ({ page }) => {
+  await setup(page);
+  await page.getByRole('button', { name: 'React with an emoji', exact: true }).first().click();
+  const toolbar = page.getByRole('toolbar', { name: 'Emoji categories' });
+  const grid = page.locator('.grid');
+  await expect(grid.locator('h3').first()).toHaveText('Frequently used');
+  await expect(toolbar.getByRole('button')).toHaveCount(10);
+  expect((await toolbar.boundingBox()).y).toBeLessThan((await page.getByRole('searchbox').boundingBox()).y);
+  await toolbar.getByRole('button', { name: 'Food & Drink', exact: true }).click();
+  await expect(toolbar.getByRole('button', { name: 'Food & Drink', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(await grid.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+  await page.keyboard.press('Home');
+  await expect(toolbar.getByRole('button', { name: 'Frequently used' })).toBeFocused();
+  await expect.poll(() => grid.evaluate(el => el.scrollTop)).toBe(0);
+  await page.keyboard.press('End');
+  await expect(toolbar.getByRole('button', { name: 'Flags', exact: true })).toBeFocused();
+  await page.getByRole('searchbox').fill('rocket');
+  await expect(grid.getByRole('button', { name: 'rocket', exact: true })).toBeVisible();
+  await toolbar.getByRole('button', { name: 'Frequently used' }).click();
+  await expect(page.getByRole('searchbox')).toHaveValue('');
+  await expect(grid.locator('h3').first()).toBeInViewport();
+  await page.getByRole('dialog').screenshot({ path: 'artifacts/picker-categories-desktop.png' });
 });
 test('failures leave counts unchanged and allow retry', async ({ page }) => {
   await setup(page, { fail: true });
@@ -133,7 +162,12 @@ test('Public / Private picker switcher keeps private emoji out of public counts'
   await page.getByRole('button', { name: 'Private', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Private', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('searchbox').fill('🚀'); await page.getByRole('button', { name: 'rocket', exact: true }).click();
-  await expect(page.getByRole('button', { name: /Private: 🚀, 1 reaction/ }).first()).toBeVisible();
+  const privateChip = page.getByRole('button', { name: /Private: 🚀, 1 reaction/ }).first();
+  await expect(privateChip).toHaveText('🚀');
+  await page.mouse.move(0, 0);
+  await expect(privateChip).toHaveCSS('background-color', 'rgb(213, 217, 223)');
+  await expect(page.locator('article[data-commit]').first().locator('.trigger')).toBeHidden();
+  await privateChip.click();
   await trigger.click();
   await page.getByRole('button', { name: 'Public', exact: true }).click();
   await expect(page.getByRole('button', { name: /Private: 🚀/ })).toHaveCount(0);

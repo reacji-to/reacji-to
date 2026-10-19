@@ -112,7 +112,7 @@ This document owns the extension picker, reaction chips, generic webpage placeme
 
 - Compact transparent blue-eyed identity.
 - Native density, restrained type, neutral surfaces, and blue actions.
-- Host-aware picker colors and automatic light/dark settings.
+- One shared picker palette and automatic light/dark settings.
 - Explicit Public / Private state and visible keyboard focus.
 - Page placements attached beneath their target with a short stem.
 
@@ -126,9 +126,9 @@ Blue marks actions; neutral surfaces, muted text, and fine rules provide structu
 
 ### Neutral
 
-**Page**, **surface**, **ink**, **muted**, **line**, and **wash** are the settings palette. The picker inherits host `--popover`, `--foreground`, `--muted-foreground`, `--border`, `--accent`, and `--primary` values when supplied, with the documented picker fallbacks. Its dark surface and wash remain distinct from settings. Selected Public / Private segments use local translucent `#7772` fill; their surrounding border uses host `--border` with `#ddd` fallback. Native settings selects retain their `#8885` border.
+**Page**, **surface**, **ink**, **muted**, **line**, and **wash** are the settings palette. The picker uses the documented palette on every platform, independent of host CSS variables. Its dark surface and wash remain distinct from settings. Selected Public / Private segments use the picker action blue with surface-colored text; their surrounding border uses the shared picker line token. Native settings selects retain their `#8885` border.
 
-**The Native Color Rule.** Preserve the picker's host-token inheritance and existing blue actions; website lime does not recolor extension controls.
+**The Native Color Rule.** Preserve the picker's shared light/dark palette and existing blue actions; website lime does not recolor extension controls.
 
 ## Typography
 
@@ -140,13 +140,13 @@ Settings titles reduce to (28px) on narrow screens. Settings subheadings are (19
 
 Settings use a centered (650px) maximum-width main with (64px) top margin and (24px) side padding. At (500px) and below, top margin becomes (24px), side padding becomes (20px), and bottom padding becomes (32px). Sections have top rules, (24px) top padding, and (32px) separation. Action rows wrap; status messages and repository identifiers wrap anywhere.
 
-The fixed picker is clamped within (12px) viewport gutters, opening above or below the trigger with a (6px) gap. It scrolls within the dynamic viewport minus (24px). The emoji grid has eight columns, (2px) gaps, and a (222px) maximum scrolling height. Post reaction bars wrap inline. Toasts sit (16px) from the bottom and right viewport edges.
+The fixed picker is clamped within (12px) viewport gutters, opening above or below the trigger with a (6px) gap. It scrolls within the dynamic viewport minus (24px). The emoji browser has eight columns, (2px) gaps, and a (270px) scrolling height with sticky section headings at (13px), weight (600). Post reaction bars wrap inline. Toasts sit (16px) from the bottom and right viewport edges.
 
-Generic page pins use an absolute toolbar placed (8px) below the resolved target, centered on the saved horizontal point. The toolbar clamps to (8px) horizontal viewport gutters and flips above the target when the viewport bottom is tight and there is room above. A (7px) line stem points toward the target; its horizontal position follows the saved point within the toolbar. The toolbar caps at (240px) or viewport width minus (16px), with internal reaction scrolling capped at (84px). Unresolvable or zero-size targets hide their pins. This is the reviewed placement behavior, not a full vertical clamping guarantee for every target geometry.
+Generic page pins use absolute positioning centered on the saved click point within the resolved target, including for older saved placements. Pins sit outside the body so its positioning and transforms do not offset them. They follow their target during scrolling and layout changes, with (8px) horizontal viewport gutters. The toolbar caps at (240px) or viewport width minus (16px), with internal reaction scrolling capped at (84px). Unresolvable or zero-size targets hide their pins.
 
 ## Elevation & Depth
 
-The interface is predominantly flat. Thin borders, background washes, and the browser popover layer establish hierarchy; picker, toolbar, and toast have no declared drop shadows. Only the selected Public / Private segment has a small structural shadow (`0 1px 2px #0001`).
+The interface is predominantly flat. Thin borders, background washes, and the browser popover layer establish hierarchy; picker, toolbar, and toast have no declared drop shadows. The selected Public / Private segment uses a solid blue fill without a shadow.
 
 The picker enters over (.13s) with `cubic-bezier(.16,1,.3,1)`, translating upward from (3px) and fading from (.7) opacity. This runs only when reduced motion is not requested. Other hover treatments are immediate.
 
@@ -164,13 +164,15 @@ Settings primary buttons are blue; secondary buttons use wash. Both use the docu
 
 ### Reaction chips and page toolbar
 
-Chips combine a platform emoji with a small tabular count, minimum height (28px). Hover adds wash and stronger ink. The user's selected reaction uses `aria-pressed="true"`, action-colored text, and wash. Private chips include a lock prefix. The generic page toolbar encloses these same compact controls and the eyes trigger; it is not a large content card. The picker includes a wrap-safe target hostname and excerpt for webpage placements.
+The eyes trigger and a selected emoji each occupy the same fixed (32 × 32px) slot, or (40 × 40px) for a page pin. Empty chip containers take no space, so selecting or clearing one reaction does not shift neighboring controls. Chips use neutral gray backgrounds independent of the host site’s accent color. Private reactions use a darker gray with no lock prefix; their accessible label still says Private. The user’s selected reaction uses `aria-pressed="true"` and replaces the eyes trigger on every platform. Removing it restores the eyes. The generic page toolbar encloses these same compact controls and the eyes trigger; it is not a large content card. The picker includes a wrap-safe target hostname and excerpt for webpage placements.
+
+On X and LinkedIn, reacji sits immediately after the like action; on dev-null it sits after the star. The shared engine divides each full action row into equal slots, including grouped trailing actions when present. It centers the icons themselves, independently of counter widths, and flattens grouped action wrappers without moving native controls. All three website examples use this same layout. When equal slots are narrower than 80px, native labels wrap below their icons and additional reaction chips stack below the personal slot. The personal reaction has a reserved slot before other reactions, so joining an existing reaction does not move the eyes or neighboring icons.
 
 ### Picker and visibility switch
 
-The picker contains a title and close control, exact **Public** / **Private** labels, a scope note, search, native category select, eight-column emoji grid, and status/action footer. Selected visibility is heavier and lightly filled. Switching does not move or erase the independent reaction in the other visibility mode.
+The picker starts with a compact strip of ten stroke icons: Frequently used followed by nine emoji categories. A blue underline marks the section currently in view; clicking a category scrolls to its heading. Below are the brand, a centered account label, and Settings, followed by exact **Public** / **Private** labels, the current reaction when present, search, and the eight-column emoji browser. Selected visibility is heavier with a solid blue fill; the selected category has a pale blue fill and blue underline. Switching does not move or erase the independent reaction in the other visibility mode. There are no add-emoji or skin-tone controls.
 
-Search accepts words or a pasted emoji. Results initially show up to (96) choices; Show more adds (96). Arrow keys move through the grid, vertically by eight. Opening focuses search; Escape closes; Tab cycles enabled controls; closing returns focus to the trigger. Status and toast announcements use polite live regions. Keep search in the extension picker; the separate homepage's removal of its profile lookup field does not remove this control.
+Frequently used opens first with sixteen choices, ranked by successful reaction count and then recency, with common emoji filling unused slots. Counts stay in extension-local storage or the website's browser-local adapter. Removing or moving a reaction does not increase its count. Browsing shows all labeled categories continuously. Search accepts words or a pasted emoji across every category; results initially show up to (96) choices and Show more adds (96). Arrow keys move through the grid, vertically by eight; Left/Right and Home/End navigate the category strip. Opening focuses search; Escape closes; Tab cycles enabled controls; closing returns focus to the trigger. Status and toast announcements use polite live regions.
 
 ### Audience and connection settings
 
@@ -183,8 +185,8 @@ GitHub connection uses primary blue actions and secondary support actions. Devic
 ### Do:
 
 - **Do** preserve the transparent photorealistic blue-eyed asset and reacji-to wordmark.
-- **Do** preserve host color inheritance, native-sized controls, and visible keyboard focus.
-- **Do** keep page toolbars outside their target content, with the stem and horizontal viewport clamping.
+- **Do** preserve the shared palette, native-sized controls, and visible keyboard focus.
+- **Do** center page reactions on the clicked point within their target content, with horizontal viewport clamping.
 - **Do** keep Public / Private and audience filtering visibly distinct.
 - **Do** preserve dark-theme mappings and the reduced-motion condition on picker entry.
 

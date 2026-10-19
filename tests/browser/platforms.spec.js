@@ -16,7 +16,7 @@ for (const platform of ['x','linkedin']) test(`${platform}: picker uses GitHub i
   await expect(page.getByRole('dialog', { name: 'Choose a reaction' }).locator('.identity')).toHaveText('@octocat');
   await page.getByRole('button',{name:'Private',exact:true}).click(); await page.getByRole('searchbox').fill('🚀'); await page.getByRole('button',{name:'rocket',exact:true}).click();
   await expect(trigger).toBeHidden();
-  await expect(page.locator('.chip')).toHaveText('🔒 🚀');
+  await expect(page.locator('.chip')).toHaveText('🚀');
   await expect(page.locator('.chip span')).toHaveCount(0);
   const message = await page.evaluate(()=>sent.find(m=>m.type==='react'));
   expect(message.event.post).toEqual({platform,id:'123456789'}); expect(message.visibility).toBe('private'); expect(message.username).toBeUndefined();
@@ -105,7 +105,7 @@ test('LinkedIn reactions stay beside the thumb, replace the eyes, and omit count
   const host = page.locator('.like-action + reacji-to-reactions');
   const eyes = host.getByRole('button',{name:'React with an emoji',exact:true});
   await expect(eyes).toBeVisible();
-  const likeBox = await page.locator('.like-action').boundingBox();
+  const likeBox = await page.locator('.like-action button').first().boundingBox();
   const eyesBox = await eyes.boundingBox();
   expect(Math.abs((eyesBox.y + eyesBox.height / 2) - (likeBox.y + likeBox.height / 2))).toBeLessThan(12);
   await eyes.click();
@@ -113,6 +113,7 @@ test('LinkedIn reactions stay beside the thumb, replace the eyes, and omit count
   await page.getByRole('button',{name:'beaming face with smiling eyes',exact:true}).click();
   const chip = host.locator('.chip');
   await expect(chip).toHaveText('😁');
+  expect(await chip.boundingBox()).toEqual(eyesBox);
   await expect(chip.locator('span')).toHaveCount(0);
   await expect(eyes).toBeHidden();
   await page.screenshot({path:'artifacts/linkedin-inline-reaction.png'});
@@ -121,4 +122,40 @@ test('LinkedIn reactions stay beside the thumb, replace the eyes, and omit count
   await expect(chip).toHaveCount(0);
   await expect(eyes).toBeVisible();
   expect((await page.evaluate(()=>sent.filter(m=>m.type==='react').at(-1))).event.emoji).toBeNull();
+});
+
+test('X spaces every icon equally after the heart, including grouped trailing actions, without selection jitter', async ({page}) => {
+  const svg='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg>';
+  const action=(name,count='')=>`<div class="slot"><button data-testid="${name}">${svg}${count?`<span>${count}</span>`:''}</button></div>`;
+  await page.route('https://x.com/**',r=>r.fulfill({contentType:'text/html',body:`<style>
+    body{margin:24px;font:14px Arial;color:#536471}article{max-width:1000px;margin:auto;padding:16px;border:1px solid #ddd}
+    [role=group]{display:flex;justify-content:space-between;align-items:center;margin-top:40px}.slot{flex:1}.trailing{display:flex;gap:8px}
+    button{display:flex;align-items:center;gap:5px;border:0;background:none;color:inherit;padding:6px 0;font:inherit}svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:2}
+    </style><article data-testid="tweet"><a href="/someone/status/123456789"><time>Today</time></a><p>An X action row with different counter widths.</p><div role="group">
+    ${action('reply','2')}${action('retweet')}${action('like','22')}<div class="slot"><a href="/someone/status/123456789/analytics">${svg}<span>747</span></a></div><div class="trailing">${action('bookmark')}${action('share')}</div></div></article>`}));
+  await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:async m=>({ok:true,value:m.type==='status'?{connected:true,actor:{id:42,login:'octocat'}}:m.type==='react'?{actor:{id:42,login:'octocat'},document:{users:m.event.emoji?{42:{login:'octocat',emoji:m.event.emoji}}:{}}}:{users:{}}})}};});
+  await page.goto('https://x.com/feed');await page.addScriptTag({path:'dist/content.js'});
+  const row=page.locator('[role=group]'),eyes=row.getByRole('button',{name:'React with an emoji',exact:true});
+  await expect(eyes).toBeVisible();
+  const centers=()=>row.evaluate(row=>{
+    const icons=[...row.querySelectorAll('svg')];
+    icons.splice(3,0,row.querySelector('reacji-to-reactions').shadowRoot.querySelector('.trigger:not([hidden]),.chip'));
+    return icons.map(el=>{const b=el.getBoundingClientRect();return Math.round((b.x+b.width/2)*10)/10;});
+  });
+  for(const width of [1280,760,390]){
+    await page.setViewportSize({width,height:900});
+    await expect.poll(async()=>{const x=await centers(),gaps=x.slice(1).map((v,i)=>v-x[i]);return Math.max(...gaps)-Math.min(...gaps);}).toBeLessThan(1);
+    const before=await centers(),eyesBox=await eyes.boundingBox();
+    await eyes.click();await page.getByRole('searchbox').fill('💙');await page.getByRole('button',{name:'blue heart',exact:true}).click();
+    const chip=row.locator('.chip');await expect(chip).toBeVisible();
+    const chipBox=await chip.boundingBox();
+    expect(chipBox.width).toBe(eyesBox.width);expect(chipBox.height).toBe(eyesBox.height);
+    expect(await centers()).toEqual(before);
+    await chip.click();await expect(eyes).toBeVisible();expect(await centers()).toEqual(before);
+  }
+  await page.setViewportSize({width:1280,height:900});
+  const beforeCountChange=await centers();
+  await page.locator('[data-testid=like] span').evaluate(el=>{el.firstChild.data='2222';});
+  await expect.poll(centers).toEqual(beforeCountChange);
+  await page.screenshot({path:'artifacts/x-even-action-spacing.png'});
 });

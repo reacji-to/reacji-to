@@ -98,12 +98,20 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     await page.getByRole('searchbox').fill('🚀'); await page.getByRole('button', { name: 'rocket', exact: true }).click();
     await expect(page.getByRole('button', { name: /🚀, 1 reaction, yours/ }).first()).toBeVisible();
     await expect.poll(()=>submissions.length).toBe(1);
+    await expect.poll(() => worker.evaluate(async () => (await chrome.storage.local.get('emojiUsage')).emojiUsage?.[0]?.emoji)).toBe('🚀');
+    await page.reload();
+    // The first post's eyes become its saved rocket when cached data arrives.
+    // Use the unreacted post so the click cannot race that replacement.
+    const unreactedPost = page.locator('article[data-commit="01a14e59-d9f2-72dd-ab12-e92f460253cd"]');
+    await unreactedPost.getByRole('button', { name: 'React with an emoji', exact: true }).click();
+    await expect(page.locator('.emoji-section').first().locator('.emoji').first()).toHaveText('🚀');
+    await page.getByRole('searchbox').press('Escape');
     expect(submissions[0].event.emoji).toBe('🚀');
     expect(submissions[0].visibility).toBe('public');
     expect(oauthRequests.filter(value => value === '/login/device/code')).toHaveLength(1);
     // Site sign-out and account changes must be checked again immediately before every mutation.
     siteUsername = 'other';
-    await page.getByRole('button', { name: 'React with an emoji', exact: true }).first().click();
+    await unreactedPost.getByRole('button', { name: 'React with an emoji', exact: true }).click();
     await page.getByRole('searchbox').fill('❤️'); await page.getByRole('button', { name: 'red heart', exact: true }).click();
     await expect(page.getByText('Sign in with the same account.', { exact: false })).toBeVisible();
     await expect.poll(()=>submissions.length).toBe(1);
@@ -119,7 +127,7 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     await page.getByRole('button', { name: 'Use this repository', exact: true }).click();
     await expect(page.getByText('Private reactions are ready.', { exact: false })).toBeVisible();
     await page.goto('https://dev-null.sh/');
-    await page.getByRole('button', { name: 'React with an emoji', exact: true }).first().click();
+    await unreactedPost.getByRole('button', { name: 'React with an emoji', exact: true }).click();
     await page.getByRole('button', { name: 'Private', exact: true }).click();
     await page.getByRole('searchbox').fill('❤️'); await page.getByRole('button', { name: 'red heart', exact: true }).click();
     await expect(page.getByRole('button', { name: /Private: ❤️, 1 reaction/ }).first()).toBeVisible();
