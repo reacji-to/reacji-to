@@ -1,9 +1,16 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>reacji-to · Connection</title><link rel="stylesheet" href="options.css"></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>reacji.to · Connection</title><link rel="stylesheet" href="options.css"></head>
 <body><main>
-<a class="brand" href="https://reacji.to/" target="_blank" rel="noopener"><img src="logo.png" width="36" height="36" alt="">reacji-to</a>
+<a class="brand" href="https://reacji.to/" target="_blank" rel="noopener"><img src="logo.png" width="36" height="36" alt="">reacji.to</a>
 <h1>Your reactions. Your choice.</h1>
 <p class="intro">Right-click anywhere on a webpage to place a reaction. Keep it private or share it on your reacji.to profile.</p>
+<section aria-labelledby="updates-title" class="updates-section">
+<h2 id="updates-title">Extension updates</h2>
+<p id="update-version" class="help"></p>
+<div id="update-available" hidden><p><strong id="update-heading">Update available</strong></p><p class="help">Download and extract the new ZIP into your installed extension folder. Then click Reload on your browser’s extensions page and reload open webpages. Your connection and settings stay saved.</p></div>
+<div class="actions"><button type="button" id="update-check" class="secondary">Check for updates</button><a id="update-download" href="https://github.com/reacji-to/reacji-to/releases/latest" target="_blank" rel="noopener noreferrer">View releases ↗</a></div>
+<p id="update-status" role="status" aria-live="polite" class="help"></p>
+</section>
 <section aria-labelledby="view-title"><h2 id="view-title">Whose reactions you see</h2>
 <label for="audience">Public reactions</label>
 <select id="audience"><option value="everyone">Everyone</option><option value="following">People I follow on dev-null</option></select>
@@ -18,7 +25,7 @@
 <p class="help">Your token is stored inside this extension and sent only to GitHub and reacji.to to verify your account. GitHub authorization expires and renews automatically; the sites you react on never receive your token.</p>
 <div class="actions"><button type="button" id="oauth-connect">Connect GitHub</button><button type="button" id="disconnect" class="secondary" hidden>Disconnect</button></div>
 <div id="device" hidden>
-<p>Enter this code on GitHub, then approve <strong>reacji-to</strong>.</p>
+<p>Enter this code on GitHub, then approve <strong>reacji.to</strong>.</p>
 <div class="code-row"><output id="user-code" aria-label="GitHub authorization code"></output><button type="button" id="copy-code" class="secondary">Copy code</button></div>
 <div class="actions"><button type="button" id="open-github">Continue to GitHub ↗</button><button type="button" id="cancel" class="secondary">Cancel</button></div>
 <p class="help">Keep this settings tab open. It will connect automatically after you approve. Never approve a code you didn’t request.</p>
@@ -36,11 +43,15 @@
 </section>
 </section>
 <section aria-labelledby="how-title"><h2 id="how-title">What happens when you react</h2>
-<ol><li>Right-click page content and choose <strong>Place a reacji here</strong>, or use the eyes beside a post.</li><li>Choose <strong>Public</strong> or <strong>Private</strong> in the emoji picker.</li><li>Your reaction is tied to your GitHub identity. On dev-null, your signed-in account must match.</li><li>The Worker commits your emoji to the public data repo or your selected private repo. Web placements also save the page URL, element path, position, and a short visible text excerpt.</li><li>Public reactions appear on reacji.to/YOUR_GITHUB_HANDLE and on the page for other extension users.</li></ol>
+<ol><li>Right-click page content and choose <strong>👀 reacji to this</strong>, or use the eyes beside a post.</li><li>Choose <strong>Public</strong> or <strong>Private</strong> in the emoji picker.</li><li>Your reaction is tied to your GitHub identity. On dev-null, your signed-in account must match.</li><li>The Worker commits your emoji to the public data repo or your selected private repo. Web placements also save the page URL, element path, position, and a short visible text excerpt.</li><li>Public reactions appear on reacji.to/YOUR_GITHUB_HANDLE and on the page for other extension users.</li></ol>
 <p>Reactions reattach when their saved target can be matched. If a page changes too much, the pin stays hidden. Browser settings pages and other extension-restricted pages cannot have reactions.</p>
-<p>One reaction per account per post in each visibility mode. Public and Private are separate; switching does not move or erase an existing reaction. Pick another emoji to change it, or choose your current reaction again to remove it.</p>
-<p>Public reactions and their history are public. Private reactions stay in your private GitHub repo; its collaborators, GitHub, and the app service can access them. They never contribute to public counts. Removing a reaction updates current data, but does not erase Git history.</p>
-<a id="repository" target="_blank" rel="noopener">View the repository ↗</a>
+</section>
+<section aria-labelledby="storage-title"><h2 id="storage-title">Where your reacji live</h2>
+<p>Reacji are saved as commits in GitHub. Public reacji and their history are visible to everyone in <a id="repository" href="https://github.com/reacji-to/reacji-to-data" target="_blank" rel="noopener">our public repository ↗</a>.</p>
+<p>Private reacji live in your chosen private repo, accessible only to you and any collaborators you may have invited.</p>
+<p class="help">GitHub hosts your data, and the app has permission to read and write your reactions. We check that your repository is private before saving.</p>
+<p>Reacji on webpages also save the page URL, placement details, and a short text excerpt so they can appear in the same spot later.</p>
+<p>Removing a reacji removes it from view, but doesn’t erase its Git history.</p>
 </section>
 <footer>Independent extension. Not affiliated with dev-null, X, LinkedIn, or GitHub.</footer>
 </main><script src="options.js"></script></body></html>

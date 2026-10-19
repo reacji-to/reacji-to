@@ -32,6 +32,7 @@ test('real extension completes device OAuth, resumes after reload, and submits w
       return route.fulfill({ status: 500, body: 'Unexpected OAuth request' });
     });
     await context.route('https://api.github.com/**', route => {
+      if (new URL(route.request().url()).pathname === '/repos/reacji-to/reacji-to/releases/latest') return route.fulfill({ json: { tag_name: 'v0.3.1', draft: false, prerelease: false } });
       if (new URL(route.request().url()).pathname.startsWith('/_private/')) return route.fulfill({ status: 204, body: '' });
       if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type, x-github-api-version', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' } });
       expect(route.request().headers().authorization, route.request().method() + ' ' + route.request().url()).toBe('Bearer ghu_test-oauth');
@@ -96,7 +97,7 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     await page.getByRole('button', { name: 'React with an emoji', exact: true }).first().click();
     await page.getByRole('searchbox').fill('🚀'); await page.getByRole('button', { name: 'rocket', exact: true }).click();
     await expect(page.getByRole('button', { name: /🚀, 1 reaction, yours/ }).first()).toBeVisible();
-    expect(submissions).toHaveLength(1);
+    await expect.poll(()=>submissions.length).toBe(1);
     expect(submissions[0].event.emoji).toBe('🚀');
     expect(submissions[0].visibility).toBe('public');
     expect(oauthRequests.filter(value => value === '/login/device/code')).toHaveLength(1);
@@ -105,11 +106,11 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     await page.getByRole('button', { name: 'React with an emoji', exact: true }).first().click();
     await page.getByRole('searchbox').fill('❤️'); await page.getByRole('button', { name: 'red heart', exact: true }).click();
     await expect(page.getByText('Sign in with the same account.', { exact: false })).toBeVisible();
-    expect(submissions).toHaveLength(1);
+    await expect.poll(()=>submissions.length).toBe(1);
     siteUsername = null;
-    await page.getByRole('button', { name: 'red heart', exact: true }).click();
-    await expect(page.getByText('Sign in to dev-null before reacting.', { exact: true })).toBeVisible();
-    expect(submissions).toHaveLength(1);
+    await page.getByRole('button', { name: 'Retry', exact: true }).click();
+    await expect(page.getByText('Sign in to dev-null before reacting.', { exact: false })).toBeVisible();
+    await expect.poll(()=>submissions.length).toBe(1);
     siteUsername = 'octocat';
     await page.goto(url);
     await page.getByRole('button', { name: 'Refresh repositories', exact: true }).click();
@@ -122,6 +123,7 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     await page.getByRole('button', { name: 'Private', exact: true }).click();
     await page.getByRole('searchbox').fill('❤️'); await page.getByRole('button', { name: 'red heart', exact: true }).click();
     await expect(page.getByRole('button', { name: /Private: ❤️, 1 reaction/ }).first()).toBeVisible();
+    await expect.poll(()=>submissions.length).toBe(2);
     expect(submissions[1].repository).toBe('octocat/reacji-to-private');
     expect(submissions[1].visibility).toBe('private');
     await context.route('https://x.com/**', route => route.fulfill({ contentType: 'text/html', body: '<meta charset="utf-8"><article data-testid="tweet"><a href="/person/status/123456789"><time>Today</time></a><div role="group"><button data-testid="reply">Reply</button></div></article>' }));
@@ -130,6 +132,7 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     await page.getByRole('button', { name: 'React with an emoji', exact: true }).click();
     await page.getByRole('searchbox').fill('🚀'); await page.getByRole('button', { name: 'rocket', exact: true }).click();
     await expect(page.getByRole('button', { name: /🚀, 1 reaction, yours/ })).toBeVisible();
+    await expect.poll(()=>submissions.length).toBe(3);
     expect(submissions[2].event.post).toEqual({ platform: 'x', id: '123456789' });
     expect(submissions[2].username).toBeUndefined();
     await page.goto(url); await page.getByRole('button', { name: 'Disconnect', exact: true }).click();

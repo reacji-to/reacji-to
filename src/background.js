@@ -6,16 +6,27 @@ import { createAuth } from './auth.js';
 import { canonicalUrl, verifyPagePost } from './web.js';
 import { loadFollowing, filterReactions } from './following.js';
 import { placeFromMenu } from './context-menu.js';
+import { createUpdateChecker } from './updates.js';
 
 // Tokens are never exposed through chrome.storage to content scripts.
 const ready = Promise.all([
   chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }),
   chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }),
 ]);
+const updates = createUpdateChecker({ storage: chrome.storage.local, currentVersion: chrome.runtime.getManifest().version,
+  onState: async state => {
+    await chrome.action.setBadgeText({ text: state.available ? '↑' : '' });
+    if (state.available) await chrome.action.setBadgeBackgroundColor({ color: '#2e5ccb' });
+    await chrome.action.setTitle({ title: state.available ? `reacji.to · Update available (${state.latestVersion})` : 'reacji.to · settings' });
+  },
+});
+const checkUpdates = async (force = false) => { await ready; return updates.check({ force }); };
+const checkUpdatesQuietly = () => { void checkUpdates().catch(() => {}); };
 const cache = new Map();
 const reads = new Map();
 const auth = createAuth({ local: chrome.storage.local, session: chrome.storage.session, clientId: GITHUB_APP_CLIENT_ID });
 let mutation = Promise.resolve();
+let visibilityQueue = Promise.resolve();
 const followingLoads = new Map();
 async function audienceState(force = false) {
   const { audience = 'everyone', followingCache = {} } = await chrome.storage.local.get(['audience', 'followingCache']);
@@ -92,7 +103,19 @@ async function handle(message, sender) {
   const platform = site && platformFor(site.hostname);
   const content = Boolean(site && ['https:', 'http:'].includes(site.protocol));
   if (!trusted && !content) throw new Error('Unsupported sender.');
+  if (message.type === 'visibility-get') {
+    const { lastVisibility } = await chrome.storage.local.get('lastVisibility');
+    return { visibility: lastVisibility === 'private' ? 'private' : 'public' };
+  }
+  if (message.type === 'visibility-save') {
+    if (!['public', 'private'].includes(message.visibility)) throw new Error('Choose Public or Private.');
+    await chrome.storage.local.set({ lastVisibility: message.visibility });
+    return {};
+  }
+  if (message.type === 'updates-status' && trusted) return checkUpdates();
+  if (message.type === 'updates-check' && trusted) return checkUpdates(true);
   if (message.type === 'status') {
+    checkUpdatesQuietly();
     const state = await auth.status();
     if (!trusted) delete state.pending;
     const { privateRepositories = {} } = await chrome.storage.local.get('privateRepositories');
@@ -181,14 +204,15 @@ async function handle(message, sender) {
 }
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   const run = () => handle(message, sender);
-  const pending = message.type === 'react' ? (mutation = mutation.catch(() => {}).then(run)) : run();
+  const pending = ['visibility-get', 'visibility-save'].includes(message.type) ? (visibilityQueue = visibilityQueue.catch(() => {}).then(run))
+    : message.type === 'react' ? (mutation = mutation.catch(() => {}).then(run)) : run();
   pending.then(value => reply({ ok: true, value }), error => reply({ ok: false, error: error.message }));
   return true;
 });
 chrome.action.onClicked.addListener(() => chrome.runtime.openOptionsPage());
-const setupMenu = () => chrome.contextMenus.removeAll(() => chrome.contextMenus.create({ id: 'reacji-to-place', title: 'Place a reacji here', contexts: ['all'], documentUrlPatterns: ['http://*/*', 'https://*/*'] }));
-chrome.runtime.onInstalled.addListener(setupMenu);
-chrome.runtime.onStartup.addListener(setupMenu);
+const setupMenu = () => chrome.contextMenus.removeAll(() => chrome.contextMenus.create({ id: 'reacji-to-place', title: '👀 reacji to this', contexts: ['all'], documentUrlPatterns: ['http://*/*', 'https://*/*'] }));
+chrome.runtime.onInstalled.addListener(() => { setupMenu(); checkUpdatesQuietly(); });
+chrome.runtime.onStartup.addListener(() => { setupMenu(); checkUpdatesQuietly(); });
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   void placeFromMenu(info, tab);
 });

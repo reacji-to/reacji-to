@@ -74,15 +74,28 @@ document.querySelector('#cancel').addEventListener('click', async () => {
 });
 disconnect.addEventListener('click', async () => {
   stopPolling();
+  disconnect.hidden = true;
+  document.querySelector('#private-setup').hidden = true;
+  connect.textContent = 'Connect GitHub';
+  report('Disconnecting…');
   try { await send({ type: 'disconnect' }); await refresh(); }
   catch (error) { report(error.message, true); }
 });
 refresh();
 
 const audienceStatus = document.querySelector('#audience-status');
-document.querySelector('#audience').addEventListener('change', async event => {
-  try { const result = await send({ type: 'audience-save', audience: event.target.value }); audienceStatus.textContent = result.error || 'Saved. Open pages refresh within 30 seconds.'; }
-  catch (error) { audienceStatus.textContent = error.message; }
+let audienceVersion = 0, audienceQueue = Promise.resolve();
+document.querySelector('#audience').addEventListener('change', event => {
+  const value = event.target.value, version = ++audienceVersion;
+  audienceStatus.textContent = value === 'following' ? 'Showing people you follow. Saving…' : 'Showing everyone. Saving…';
+  audienceQueue = audienceQueue.catch(() => {}).then(async () => {
+    try {
+      const result = await send({ type: 'audience-save', audience: value });
+      if (version === audienceVersion) audienceStatus.textContent = result.error || 'Saved. Open pages refresh within 30 seconds.';
+    } catch (error) {
+      if (version === audienceVersion) { await refresh(); audienceStatus.textContent = error.message; }
+    }
+  });
 });
 document.querySelector('#following-refresh').addEventListener('click', async () => {
   audienceStatus.textContent = 'Loading your dev-null following list…';
@@ -102,10 +115,38 @@ document.querySelector('#private-refresh').addEventListener('click', async () =>
     privateStatus.textContent = result.repositories.length ? 'Choose your repository and save.' : 'No eligible private repos. Create one or install the app on an existing private repo, then refresh.';
   } catch (error) { privateStatus.textContent = error.message; }
 });
-document.querySelector('#private-save').addEventListener('click', async () => {
-  privateStatus.textContent = 'Checking repository access…';
-  try {
-    const result = await send({ type: 'private-save', repository: repositorySelect.value });
-    privateStatus.textContent = `Using ${result.repository}. Private reactions are ready.`;
-  } catch (error) { privateStatus.textContent = error.message; }
+let repositoryVersion = 0, repositoryQueue = Promise.resolve();
+document.querySelector('#private-save').addEventListener('click', () => {
+  const repository = repositorySelect.value, version = ++repositoryVersion;
+  if (!repository) { privateStatus.textContent = 'Choose a repository first.'; return; }
+  privateStatus.textContent = `Using ${repository}. Checking access…`;
+  repositoryQueue = repositoryQueue.catch(() => {}).then(async () => {
+    try {
+      const result = await send({ type: 'private-save', repository });
+      if (version === repositoryVersion) privateStatus.textContent = `Using ${result.repository}. Private reactions are ready.`;
+    } catch (error) {
+      if (version === repositoryVersion) { await refresh(); privateStatus.textContent = error.message; }
+    }
+  });
 });
+
+
+const updateCheck = document.querySelector('#update-check');
+const updateStatus = document.querySelector('#update-status');
+async function refreshUpdates(force = false) {
+  updateCheck.disabled = true;
+  updateStatus.textContent = 'Checking for updates…';
+  try {
+    const state = await send({ type: force ? 'updates-check' : 'updates-status' });
+    document.querySelector('#update-version').textContent = `Installed version ${state.currentVersion}`;
+    document.querySelector('#update-available').hidden = !state.available;
+    document.querySelector('.updates-section').toggleAttribute('data-available', state.available);
+    document.querySelector('#update-heading').textContent = `Update available · ${state.latestVersion}`;
+    document.querySelector('#update-download').textContent = state.available ? `Download ${state.latestVersion} ↗` : 'View releases ↗';
+    updateStatus.textContent = state.error || (state.available ? 'This unpacked extension needs a manual update.' : 'You’re up to date.');
+  } catch {
+    updateStatus.textContent = 'Could not check for updates. Try again later or open the releases page.';
+  } finally { updateCheck.disabled = false; }
+}
+updateCheck.addEventListener('click', () => refreshUpdates(true));
+refreshUpdates();

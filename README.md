@@ -1,8 +1,8 @@
-# reacji-to
+# reacji.to
 
-React anywhere on the web with any emoji, using your GitHub identity. Right-click page content and choose **Place a reacji here**, or use the eyes picker beside dev-null stars and under X and LinkedIn posts.
+React anywhere on the web with any emoji, using your GitHub identity. Right-click page content and choose **👀 reacji to this**, or use the eyes picker beside dev-null stars and under X and LinkedIn posts.
 
-Choose **Public / Private** in the picker. Public reactions appear on the page for other extension users and at `reacji.to/YOUR_GITHUB_HANDLE`. Private reactions live in a private GitHub repository you own. Settings let you see **Everyone** or **People I follow on dev-null**, always including your own reactions.
+Choose **Public / Private** in the picker. New reactions remember your last choice across pages and browser restarts; opening an existing reaction chip keeps its visibility. Public reactions appear on the page for other extension users and at `reacji.to/YOUR_GITHUB_HANDLE`. Private reactions live in a private GitHub repository you own. Settings let you see **Everyone** or **People I follow on dev-null**, always including your own reactions.
 
 ## Repositories
 
@@ -16,14 +16,16 @@ All three use the MIT license. The GitHub App gets Contents read/write and manda
 
 ## Install and connect
 
+For a complete walkthrough you can give to your agent, see [Set up reacji.to](SETUP.md).
+
 1. Download and extract [the extension ZIP](https://github.com/reacji-to/reacji-to/releases/latest).
 2. Open `chrome://extensions` or `helium://extensions`, enable Developer mode, choose **Load unpacked**, and select the extracted folder. For development, build and select `dist/`.
 3. Open the extension settings and **Connect GitHub**. Enter the displayed code on GitHub and authorize **reacji-to**. No personal access token is needed.
 4. For Private reactions, choose **Choose repositories on GitHub**, select **Only select repositories**, and install on your private reactions repo. **Create a new private repo** opens GitHub’s own creation form; choose Private, then install the app on it.
 5. Refresh the repository list in extension settings, select your private repo, and save.
-6. Reload your open webpages. Right-click a location, choose **Place a reacji here**, select Public or Private, and choose an emoji.
+6. Reload your open webpages. Right-click a location, choose **👀 reacji to this**, select Public or Private, and choose an emoji.
 
-Unpacked extensions do not auto-update. Replace their files and click Reload on the extensions page for a new release. Browser settings pages, the extension store, and other browser-protected pages cannot host reactions.
+The extension checks for new stable GitHub releases on startup and during use, at most every 12 hours. A toolbar ↑ badge and an **Update available** notice in settings link to the download. You can also use **Check for updates** in settings. Unpacked extensions cannot install updates themselves: replace their files, click Reload on the extensions page, and reload open webpages. Checks use public release metadata without your GitHub token. Browser settings pages, the extension store, and other browser-protected pages cannot host reactions.
 
 ## What is saved
 
@@ -71,6 +73,6 @@ Then run the website’s tests and deploy from that repository. Its `shared/ORIG
 
 ## Activation status
 
-The organization-owned app is installed on **only reacji-to/reacji-to-data**, and the Cloudflare secret is configured. Installation scope and token access are verified. Cloudflare runtime tests cover public and private writes with mocked GitHub responses; a complete live reaction commit through a user’s extension still needs verification. The app must not be installed on the extension or website repos.
+The organization-owned app is installed on **only reacji-to/reacji-to-data** within the organization, and the Cloudflare secret is configured. Installation scope and token access are verified. Live public and private reaction commits have been verified through Helium, including persistence after reload and no public-data changes from a private save. Private-mode users separately install the app on their selected private reactions repository. The app must not be installed on the extension or website repos.
 
 MIT. Unicode data has its own notice in `THIRD_PARTY_NOTICES.md`. Independent of dev-null, X, LinkedIn, and GitHub.

@@ -4,6 +4,28 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 const commit = '01a14f9d-76a7-72d9-a92d-48ae9ea999cb';
 const markup = await readFile('fixtures/feed.html', 'utf8');
+
+test('nested dev-null replies use their own permalink and eyes sit outside the Star tooltip', async ({page}) => {
+  const child='01a14e59-d9f2-72dd-ab12-e92f460253cd';
+  const html=`<article data-commit="${commit}" id="parent"><a data-test="commit-permalink" href="/@parent/commits/${commit}"><time>Parent</time></a><p>Parent post</p><span data-slot="tooltip-trigger" title="Star"><button data-test="star-commit-button">Star parent</button></span><article data-reply id="child"><a href="/@child/commits/${child}"><time>Child</time></a><p>Porto in the house!</p><span data-slot="tooltip-trigger" title="Star"><button data-test="star-commit-button">Star child</button></span><article data-reply id="unknown"><button data-test="star-commit-button">Missing identity</button></article></article></article>`;
+  await page.route('https://dev-null.sh/**',r=>r.request().headers()['x-inertia']?r.fulfill({json:{props:{auth:{user:{username:'octocat'}}}}}):r.fulfill({body:html,contentType:'text/html'}));
+  await page.addInitScript(()=>{window.sent=[];window.chrome={runtime:{sendMessage:async m=>{
+    sent.push(m);
+    return {ok:true,value:m.type==='status'?{connected:true,actor:{id:42,login:'octocat'}}:m.type==='react'?{actor:{id:42,login:'octocat'},document:{users:{42:{login:'octocat',emoji:m.event.emoji}}}}:{users:{}}};
+  }}};});
+  await page.goto('https://dev-null.sh/');await page.addScriptTag({path:'dist/content.js'});
+  const parent=page.locator('#parent > reacji-to-reactions'), reply=page.locator('#child > reacji-to-reactions');
+  await expect(parent).toHaveCount(1);await expect(reply).toHaveCount(1);
+  await expect(page.locator('#unknown reacji-to-reactions')).toHaveCount(0);
+  await expect(page.locator('[data-slot="tooltip-trigger"] reacji-to-reactions')).toHaveCount(0);
+  await expect(reply.getByRole('button',{name:'React with an emoji'})).toHaveAttribute('title','reacji.to');
+  await reply.getByRole('button',{name:'React with an emoji'}).click();
+  await page.getByRole('searchbox').fill('🤪');await page.getByRole('button',{name:'zany face',exact:true}).click();
+  await expect(reply.locator('.chip')).toContainText('🤪');await expect(parent.locator('.chip')).toHaveCount(0);
+  await expect.poll(()=>page.evaluate(()=>sent.filter(m=>m.type==='react').length)).toBe(1);
+  expect(await page.evaluate(()=>sent.find(m=>m.type==='react').event.post)).toEqual({platform:'devnull',id:child,author:'child'});
+  await expect(reply.locator('.chip')).toBeEnabled();await expect(parent.locator('.chip')).toHaveCount(0);
+});
 async function setup(page, { connected = true, fail = false, readFail = false } = {}) {
   await page.route('https://dev-null.sh/**', route => route.request().headers()['x-inertia'] ? route.fulfill({ json: { props: { auth: { user: { username: 'octocat' } } } } }) : route.fulfill({ body: markup, contentType: 'text/html' }));
   await page.addInitScript(({ commit, connected, fail, readFail }) => {
@@ -38,7 +60,7 @@ test('eyes icon sits immediately beside the star; search, react, change, remove'
   await expect(first.getByRole('button', { name: /🔥, 2 reactions, yours/ })).toBeVisible();
   await first.getByRole('button', { name: /🔥, 2 reactions, yours/ }).click();
   await expect(first.getByRole('button', { name: /🔥, 1 reaction/ })).toBeVisible();
-  expect((await page.evaluate(() => sent.filter(m => m.type === 'react').map(m => m.event.emoji)))).toEqual(['👩🏾‍💻', '🔥', null]);
+  await expect.poll(() => page.evaluate(() => sent.filter(m => m.type === 'react').map(m => m.event.emoji))).toEqual(['👩🏾‍💻', '🔥', null]);
 });
 test('keyboard, pasting multi-codepoint emoji, and empty search', async ({ page }) => {
   await setup(page);
@@ -60,7 +82,7 @@ test('failures leave counts unchanged and allow retry', async ({ page }) => {
   await page.getByRole('searchbox').fill('❤️');
   await page.getByRole('button', { name: 'red heart', exact: true }).click();
   await expect(page.getByText('GitHub refused this request.', { exact: false })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'red heart', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeEnabled();
   await expect(page.getByRole('button', { name: /❤️, 1 reaction/ })).toHaveCount(0);
 });
 test('page scripts cannot submit reactions by synthesizing clicks', async ({ page }) => {
@@ -77,7 +99,7 @@ test('disconnected users cannot submit a reaction', async ({ page }) => {
   await page.getByRole('button', { name: 'React with an emoji', exact: true }).first().click();
   await page.getByRole('searchbox').fill('❤️');
   await page.getByRole('button', { name: 'red heart', exact: true }).click();
-  await expect(page.getByText('Connect GitHub in extension settings before reacting.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Connect GitHub in extension settings before reacting.', { exact: false })).toBeVisible();
   await expect(page.getByRole('button', { name: /❤️, 1 reaction/ })).toHaveCount(0);
 });
 test('feed mutations do not duplicate controls; readonly stars also get reactions', async ({ page }) => {

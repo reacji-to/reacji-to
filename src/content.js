@@ -15,14 +15,31 @@ const platform = platformFor(location.hostname);
 const siteIdentity = () => platform === 'devnull' ? currentDevNullUser() : Promise.resolve({});
 let actor = null;
 let active = null;
+let pickerGeneration = 0, lastVisibility = 'public';
 let pageIdentity = null, lastContext = null, pageLoading = false, pageGeneration = 0, pageHref = location.href;
 let pagePublic = null, pagePrivate = null, privateGeneration = 0;
-const usersFor = (record, privateMode = record.visibility === 'private') => placementUsers(privateMode ? record.privateData : record.data, record.placement);
+const optimistic = new Map();
+let saveQueue = Promise.resolve(), dataRevision = 0;
+const mutationKey = (record, visibility) => `${record.id}:${visibility}`;
+const usersFor = (record, privateMode = record.visibility === 'private') => {
+  const users = placementUsers(privateMode ? record.privateData : record.data, record.placement);
+  const pending = optimistic.get(mutationKey(record, privateMode ? 'private' : 'public'));
+  if (!pending || (privateMode && (document.hidden || pending.generation !== privateGeneration))) return users;
+  const result = { ...users };
+  const owner = pending.actor || actor || { id: 0, login: 'you' };
+  if (pending.emoji === null) delete result[owner.id];
+  else result[owner.id] = { login: owner.login, emoji: pending.emoji };
+  return result;
+};
 const send = async message => {
   const result = await chrome.runtime.sendMessage(message);
   if (!result?.ok) throw new Error(result?.error || 'Extension updated. Reload this page and try again.');
   return result.value;
 };
+function rememberVisibility(visibility) {
+  lastVisibility = visibility;
+  void send({ type: 'visibility-save', visibility }).catch(error => notify(error.message));
+}
 const element = (tag, attributes = {}, text) => {
   const el = document.createElement(tag);
   for (const [key, value] of Object.entries(attributes)) el.setAttribute(key, value);
@@ -44,153 +61,185 @@ document.body.append(overlay.el);
 const toast = element('div', { class: 'toast', popover: 'manual', role: 'status', 'aria-live': 'polite' });
 overlay.shadow.append(toast);
 let toastTimer;
-function notify(message, url) {
+function notify(message, url, retry) {
   toast.replaceChildren(document.createTextNode(message));
   if (url) {
     const link = element('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, ' View commit');
     toast.append(link);
+  }
+  if (retry) {
+    const button = element('button', { type: 'button', class: 'link' }, 'Retry');
+    button.addEventListener('click', event => { if (event.isTrusted) { toast.hidePopover(); retry(); } });
+    toast.append(document.createTextNode(' '), button);
   }
   toast.showPopover();
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.hidePopover(), 9000);
 }
 function display(record) {
+  const focused = record.el.shadowRoot.activeElement;
+  const focusedLabel = focused?.classList.contains('chip') ? focused.getAttribute('aria-label') : null;
   record.chips.replaceChildren();
   for (const group of summarize({ users: usersFor(record) }, actor?.id)) {
     const button = element('button', { type: 'button', class: 'chip', 'aria-pressed': String(group.mine),
-      'aria-label': `${record.visibility === 'private' ? 'Private: ' : ''}${group.emoji}, ${group.count} reaction${group.count === 1 ? '' : 's'}${group.mine ? ', yours. Remove reaction' : '. React with this emoji'}`,
+      'aria-label': `${record.visibility === 'private' ? 'Private: ' : ''}${group.emoji}, ${group.count} reaction${group.count === 1 ? '' : 's'}${group.mine ? ', yours' : ''}. ${record.placement ? 'Change reaction' : group.mine ? 'Remove reaction' : 'React with this emoji'}`,
       title: `${group.people.slice(0, 12).map(name => `@${name}`).join(', ')}${group.people.length > 12 ? '…' : ''}` });
-    button.append(document.createTextNode(`${record.visibility === 'private' ? '🔒 ' : ''}${group.emoji}`), element('span', {}, String(group.count)));
-    button.addEventListener('click', event => { event.stopPropagation(); if (event.isTrusted) choose(record, group.mine ? null : group.emoji); });
+    button.append(document.createTextNode(`${record.visibility === 'private' ? '🔒 ' : ''}${group.emoji}`));
+    if (!record.placement) button.append(element('span', {}, String(group.count)));
+    if (record.placement) { button.setAttribute('aria-haspopup', 'dialog'); button.setAttribute('aria-expanded', String(active?.record === record)); }
+
+    button.addEventListener('click', event => { event.stopPropagation(); if (event.isTrusted) record.placement ? openPicker(record, true) : choose(record, group.mine ? null : group.emoji); });
     record.chips.append(button);
   }
-  record.button.title = record.error || 'React with any emoji';
+  if (focusedLabel) [...record.chips.children].find(button => button.getAttribute('aria-label') === focusedLabel)?.focus({ preventScroll: true });
+  record.button.title = 'reacji.to';
+  record.el.setAttribute('aria-busy', String(optimistic.has(mutationKey(record, record.visibility || 'public'))));
   if (record.placement) {
+    record.button.hidden = record.chips.childElementCount > 0;
     const present = Object.values(usersFor(record,false)).some(u=>u.emoji) || Object.values(usersFor(record,true)).some(u=>u.emoji);
     record.el.hidden = !record.pending && !present && active?.record !== record;
   }
 }
 async function refresh(record) {
-  if (record.loading) return;
-  record.loading = true;
-  const generation = privateGeneration;
   const visibility = record.visibility;
+  record.loading ||= new Set();
+  if (record.loading.has(visibility)) return;
+  record.loading.add(visibility);
+  const generation = privateGeneration, revision = dataRevision;
   try {
     if (visibility === 'private') {
       const identity = await siteIdentity();
       const data = await send({ type: 'private-read', post: record.post, ...identity });
-      if (document.hidden || generation !== privateGeneration || record.visibility !== visibility) return;
+      if (document.hidden || generation !== privateGeneration || record.visibility !== visibility || revision !== dataRevision || optimistic.size) return;
       record.privateData = data;
       if (record.placement && pageIdentity?.id === record.post.id) pagePrivate = record.privateData;
-    } else record.data = await send({ type: 'read', post: record.post });
+    } else {
+      const data = await send({ type: 'read', post: record.post });
+      if (revision !== dataRevision || optimistic.size) return;
+      record.data = data;
+    }
     if (record.placement && record.visibility !== 'private' && pageIdentity?.id === record.post.id) pagePublic = record.data;
     record.error = null;
     display(record);
-  } catch (error) { record.privateData = null; display(record); record.error = error.message; record.button.title = error.message; }
-  finally { record.loading = false; }
+  } catch (error) { if (revision === dataRevision && record.visibility === visibility) { record.error = error.message; display(record); } }
+  finally { record.loading.delete(visibility); }
 }
-async function choose(record, emoji) {
-  if (record.busy) return;
-  record.busy = true;
+function choose(record, emoji) {
   const generation = privateGeneration;
-  record.button.disabled = true;
-  if (active?.record === record) {
-    active.status.textContent = 'Submitting reaction…';
-    active.panel.querySelectorAll('button').forEach(button => { button.disabled = true; });
-  }
-  try {
-    const identity = await siteIdentity();
-    const result = await send({ type: 'react', event: { version: 1, commit: record.post.id, post: record.post, ...(record.placement ? { placement: record.placement } : {}), emoji }, visibility: record.visibility || 'public', ...identity });
-    actor = result.actor;
-    if (result.duplicate) { await refresh(record); closePicker(); notify('Reaction already saved.'); return; }
-    record.pending = false;
-    const resultDocument = record.visibility === 'private' && (document.hidden || generation !== privateGeneration) ? null : result.document;
-    if (record.placement && pageIdentity?.id === record.post.id) {
-      if (record.visibility === 'private') pagePrivate = resultDocument;
-      else pagePublic = result.document;
-    }
-    for (const r of records.values()) if (postKey(r.post) === postKey(record.post)) {
-      if (record.visibility === 'private') r.privateData = resultDocument;
-      else r.data = result.document;
-      display(r);
-    }
-    notify(`${record.visibility === 'private' ? 'Private' : 'Public'} reaction saved.`, result.url);
-    closePicker();
-  } catch (error) {
-    if (active?.record === record) active.status.textContent = error.message;
-    else notify(error.message);
-  } finally {
-    record.busy = false;
-    record.button.disabled = false;
-    active?.panel.querySelectorAll('button').forEach(button => { button.disabled = false; });
-  }
+  const visibility = record.visibility || 'public';
+  rememberVisibility(visibility);
+  const key = mutationKey(record, visibility);
+  const pending = { actor: actor && { ...actor }, emoji, generation };
+  optimistic.set(key, pending);
+  dataRevision++;
+  record.pending = false;
+  if (active?.record === record) closePicker();
+  const repaint = () => {
+    for (const r of records.values()) if (postKey(r.post) === postKey(record.post)) display(r);
+    positionPins();
+  };
+  repaint();
+  // Preserve click order without locking the picker or the visible reaction.
+  const save = async () => {
+    try {
+      const identity = await siteIdentity();
+      const result = await send({ type: 'react', event: { version: 1, commit: record.post.id, post: record.post, ...(record.placement ? { placement: record.placement } : {}), emoji }, visibility, ...identity });
+      actor = result.actor || actor;
+      let savedDocument = result.document;
+      if (!savedDocument) savedDocument = await send({ type: visibility === 'private' ? 'private-read' : 'read', post: record.post, ...identity });
+      const resultDocument = visibility === 'private' && (document.hidden || generation !== privateGeneration) ? null : savedDocument;
+      if (record.placement && pageIdentity?.id === record.post.id) {
+        if (visibility === 'private') pagePrivate = resultDocument;
+        else pagePublic = savedDocument;
+      }
+      for (const r of records.values()) if (postKey(r.post) === postKey(record.post)) {
+        if (visibility === 'private') r.privateData = resultDocument;
+        else r.data = savedDocument;
+      }
+      if (optimistic.get(key) === pending) optimistic.delete(key);
+    } catch (error) {
+      // A failure for an earlier click must never undo a newer choice.
+      if (optimistic.get(key) === pending) {
+        optimistic.delete(key);
+        notify(`${error.message} Previous reaction restored.`, null, () => {
+          record.visibility = visibility;
+          choose(record, emoji);
+        });
+      }
+    } finally { dataRevision++; repaint(); }
+  };
+  saveQueue = saveQueue.catch(() => {}).then(save);
+  return saveQueue;
 }
 function closePicker() {
+  pickerGeneration++;
   if (!active) return;
   const { panel, record } = active;
   active = null;
   panel.remove();
   record.button.setAttribute('aria-expanded', 'false');
   if (record.placement) { record.pending = false; display(record); }
-  if (record.button.isConnected) record.button.focus({ preventScroll: true });
+  if (record.el.isConnected && !record.el.hidden) (record.button.hidden ? record.chips.querySelector('button') : record.button)?.focus({ preventScroll: true });
 }
 function positionPicker() {
   if (!active) return;
   if (!active.record.el.isConnected) return closePicker();
-  const box = active.record.button.getBoundingClientRect();
+  const box = (active.record.button.hidden ? active.record.el : active.record.button).getBoundingClientRect();
   const panel = active.panel;
   const width = panel.offsetWidth, height = panel.offsetHeight;
   panel.style.left = `${Math.max(12, Math.min(box.left, innerWidth - width - 12))}px`;
   const below = box.bottom + 6;
   panel.style.top = `${Math.max(12, Math.min(below + height <= innerHeight - 12 ? below : box.top - height - 6, innerHeight - height - 12))}px`;
 }
-async function openPicker(record) {
+async function openPicker(record, preserveVisibility = false) {
   if (active?.record === record) return closePicker();
   closePicker();
+  const generation = pickerGeneration;
+  if (!preserveVisibility) {
+    try {
+      const preference = await send({ type: 'visibility-get' });
+      if (generation !== pickerGeneration || !record.el.isConnected) return;
+      if (['public', 'private'].includes(preference.visibility)) lastVisibility = preference.visibility;
+      record.visibility = lastVisibility;
+      display(record);
+    } catch (error) { notify(error.message); return; }
+  }
   const panel = element('section', { class: 'panel', popover: 'auto', role: 'dialog', 'aria-label': 'Choose a reaction' });
   const head = element('div', { class: 'head' });
-  const close = element('button', { class: 'close', type: 'button', 'aria-label': 'Close reactions' }, '×');
-  close.addEventListener('click', closePicker);
-  head.append(element('strong', {}, 'reacji-to'), close);
+  const identity = element('span', { class: 'identity' }, actor?.login ? ` @${actor.login}` : '');
+  const title = element('strong', {}, 'reacji.to');
+  title.append(identity);
   const controls = element('div', { class: 'controls' });
   const search = element('input', { class: 'search', type: 'search', placeholder: 'Search or paste any emoji', 'aria-label': 'Search or paste any emoji' });
   const category = element('select', { class: 'category', 'aria-label': 'Emoji category' });
-  category.append(element('option', { value: '' }, 'All emoji · including skin tones'));
+  category.append(element('option', { value: '' }, 'All emoji'));
   for (const group of new Set(emojis.map(item => item.group))) category.append(element('option', { value: group }, group));
   controls.append(search, category);
   const grid = element('div', { class: 'grid', 'aria-label': 'Emoji choices' });
-  const footer = element('div', { class: 'footer' });
-  const status = element('p', { class: 'status', role: 'status', 'aria-live': 'polite' }, record.error || 'Loading connection…');
-  const settings = element('button', { class: 'link', type: 'button' }, 'Connection settings');
+  const status = element('p', { class: 'status', role: 'status', 'aria-live': 'polite' }, record.error || '');
+  const settings = element('button', { class: 'link', type: 'button' }, 'Settings');
   settings.addEventListener('click', event => { if (event.isTrusted) send({ type: 'options' }).catch(error => { status.textContent = error.message; }); });
-  const remove = element('button', { class: 'link', type: 'button' }, 'Remove my reaction');
-  remove.addEventListener('click', event => { if (event.isTrusted) choose(record, null); });
-  footer.append(status, settings, document.createTextNode(' · '), remove);
+  head.append(title, settings);
   const visibility = element('div', { class: 'visibility', role: 'group', 'aria-label': 'Reaction visibility' });
   const publicButton = element('button', { type: 'button', 'aria-pressed': String(record.visibility !== 'private') }, 'Public');
   const privateButton = element('button', { type: 'button', 'aria-pressed': String(record.visibility === 'private') }, 'Private');
-  const scopeNote = element('p', { class: 'scope-note' });
   const updateScope = () => {
     publicButton.setAttribute('aria-pressed', String(record.visibility !== 'private'));
     privateButton.setAttribute('aria-pressed', String(record.visibility === 'private'));
-    const mine = usersFor(record)[actor?.id]?.emoji;
-    scopeNote.textContent = record.visibility === 'private'
-      ? `Saved only in your private repo.${mine ? ` Your reaction: ${mine}.` : ''}${usersFor(record,false)[actor?.id]?.emoji ? ' Your separate public reaction remains public.' : ''}`
-      : `Visible on your public reacji.to profile.${mine ? ` Your reaction: ${mine}.` : ''}`;
+
   };
   const switchScope = async value => {
-    if (record.busy) return;
-    record.visibility = value; record.privateData = null; display(record); updateScope();
+    rememberVisibility(value);
+    record.visibility = value; display(record); updateScope();
     status.textContent = 'Loading reactions…';
     await refresh(record);
-    if (active?.record === record) { status.textContent = record.error || 'Choose an emoji.'; updateScope(); }
+    if (active?.record === record) { status.textContent = record.error || ''; updateScope(); }
   };
   publicButton.addEventListener('click', event => { if (event.isTrusted) switchScope('public'); });
   privateButton.addEventListener('click', event => { if (event.isTrusted) switchScope('private'); });
   visibility.append(publicButton, privateButton);
   updateScope();
-  panel.append(head, visibility, scopeNote, controls, grid, footer);
-  if (record.placement) panel.insertBefore(element('p', { class: 'scope-note page-target' }, `${new URL(record.post.url).hostname} · ${record.placement.quote || record.placement.tag}`), controls);
+  panel.append(head, visibility, controls, grid, status);
   overlay.shadow.append(panel);
   active = { record, panel, status };
   record.button.setAttribute('aria-expanded', 'true');
@@ -237,12 +286,12 @@ async function openPicker(record) {
   });
   panel.addEventListener('toggle', event => { if (event.newState === 'closed' && active?.panel === panel) closePicker(); });
   panel.showPopover(); draw(); positionPicker(); search.focus();
+  void refresh(record);
   try {
     const state = await send({ type: 'status' });
     actor = state.actor;
-    if (active?.panel === panel) status.textContent = state.followingError || (state.connected
-      ? `Connected as @${actor.login}.${platform === 'devnull' ? ' Your dev-null account is checked before saving.' : ' Reactions use your GitHub identity.'}`
-      : state.authError || 'Connect GitHub in settings before reacting.');
+    identity.textContent = actor?.login ? ` @${actor.login}` : '';
+    if (active?.panel === panel) status.textContent = state.followingError || (state.connected ? '' : state.authError || 'Connect GitHub in settings before reacting.');
     updateScope();
     for (const r of records.values()) display(r);
   } catch (error) { if (active?.panel === panel) status.textContent = error.message; }
@@ -270,9 +319,8 @@ function addRecord({ article, anchor, post, inline, placement, pending = false }
     const { el, shadow } = host();
     if (!inline) { el.style.display = 'block'; el.style.padding = '4px 0 8px'; }
     const bar = element('span', { class: 'bar' });
-    const button = element('button', { class: 'trigger', type: 'button', 'aria-label': 'React with an emoji', 'aria-haspopup': 'dialog', 'aria-expanded': 'false' });
+    const button = element('button', { class: 'trigger', type: 'button', title: 'reacji.to', 'aria-label': 'React with an emoji', 'aria-haspopup': 'dialog', 'aria-expanded': 'false' });
     button.append(element('img', { src: pickerLogo, width: 16, height: 16, alt: '', 'aria-hidden': 'true' }));
-    if (!inline && !placement) button.append(document.createTextNode('reacji-to'));
     const chips = element('span', { class: 'bar' });
     bar.append(button, chips); shadow.append(bar);
     if (placement) { document.body.append(el); el.style.cssText = 'position:absolute;z-index:2147483000;'; bar.classList.add('pin'); }
@@ -314,7 +362,7 @@ function reconcilePins() {
       record = addRecord({ article: anchor, anchor, post: pageIdentity, inline: true, placement });
     }
     record.data = pagePublic; record.privateData = pagePrivate;
-    if (!Object.values(usersFor(record,false)).some(u=>u.emoji) && Object.values(usersFor(record,true)).some(u=>u.emoji)) record.visibility = 'private';
+    if (active?.record !== record && !Object.values(usersFor(record,false)).some(u=>u.emoji) && Object.values(usersFor(record,true)).some(u=>u.emoji)) record.visibility = 'private';
     display(record);
   }
   positionPins();
@@ -322,7 +370,7 @@ function reconcilePins() {
 async function loadPage() {
   if (pageLoading || document.hidden) return;
   pageLoading = true;
-  const generation = pageGeneration;
+  const generation = pageGeneration, revision = dataRevision;
   try {
     const post = await pagePost(location.href);
     const state = await send({ type: 'status' });
@@ -331,7 +379,7 @@ async function loadPage() {
     if (state.connected && state.privateRepository) {
       try { privateData = await send({ type: 'private-read', post, ...await siteIdentity() }); } catch { /* Public pins remain available when private access needs reconnecting. */ }
     }
-    if (generation !== pageGeneration || document.hidden) return;
+    if (generation !== pageGeneration || document.hidden || revision !== dataRevision || optimistic.size) return;
     pageIdentity = post; pagePublic = data; pagePrivate = privateData; reconcilePins();
   } catch { /* A new page without reaction data needs no interruption. */ }
   finally { pageLoading = false; if (generation !== pageGeneration) loadPage(); }
@@ -363,7 +411,6 @@ chrome.runtime.onMessage?.addListener((message, sender, reply) => {
       record.pending = true; record.el.hidden = false; positionPins();
       // Open immediately; reading existing reactions must not delay the picker.
       const opening = openPicker(record);
-      void refresh(record);
       await opening;
     } catch (error) { notify(error.message); }
   })();

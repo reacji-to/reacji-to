@@ -7,8 +7,12 @@ for (const platform of ['x','linkedin']) test(`${platform}: picker uses GitHub i
   await page.addInitScript(() => { window.sent=[]; window.chrome={runtime:{sendMessage:async m=>{sent.push(m);return {ok:true,value:m.type==='status'?{connected:true,actor:{id:42,login:'octocat'}}:m.type==='react'?{actor:{id:42,login:'octocat'},document:{users:{42:{login:'octocat',emoji:m.event.emoji}}}}:{users:{}}};}}}; });
   await page.goto(`https://${host}/feed`); await page.addScriptTag({path:'dist/content.js'});
   const trigger = page.getByRole('button',{name:'React with an emoji',exact:true});
-  await expect(trigger).toHaveCount(1); await trigger.click();
-  await expect(page.getByText(/Reactions use your GitHub identity/)).toBeVisible();
+  await expect(trigger).toHaveCount(1);
+  await expect(trigger).toHaveAttribute('title','reacji.to');
+  await expect(trigger.locator('img')).toBeVisible();
+  await expect(trigger).toHaveText('');
+  await trigger.click();
+  await expect(page.getByRole('dialog', { name: 'Choose a reaction' }).locator('.identity')).toHaveText('@octocat');
   await page.getByRole('button',{name:'Private',exact:true}).click(); await page.getByRole('searchbox').fill('🚀'); await page.getByRole('button',{name:'rocket',exact:true}).click();
   const message = await page.evaluate(()=>sent.find(m=>m.type==='react'));
   expect(message.event.post).toEqual({platform,id:'123456789'}); expect(message.visibility).toBe('private'); expect(message.username).toBeUndefined();
