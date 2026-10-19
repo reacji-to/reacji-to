@@ -345,8 +345,14 @@ function pageChanged() {
 document.addEventListener('contextmenu', event => {
   if (event.isTrusted && !event.composedPath().some(el=>el.localName === 'reacji-to-reactions')) lastContext = { target: event.target, x: event.clientX, y: event.clientY, href: location.href };
 }, true);
-chrome.runtime.onMessage?.addListener(message => {
-  if (message.type !== 'place-reaction' || !lastContext || lastContext.href !== location.href) return;
+chrome.runtime.onMessage?.addListener((message, sender, reply) => {
+  if (message.type !== 'place-reaction') return;
+  if (!lastContext || lastContext.href !== location.href) {
+    notify('Right-click the page content again to choose where to react.');
+    reply?.({ handled: true });
+    return;
+  }
+  reply?.({ handled: true });
   const context = lastContext; lastContext = null;
   (async () => {
     try {
@@ -354,7 +360,11 @@ chrome.runtime.onMessage?.addListener(message => {
       const post = await pagePost(location.href);
       let record = [...records.values()].find(r=>r.placement && r.anchor === context.target && postKey(r.post) === postKey(post));
       if (!record) record = addRecord({ article: context.target, anchor: context.target, post, inline: true, placement, pending: true });
-      record.pending = true; record.el.hidden = false; positionPins(); await refresh(record); await openPicker(record);
+      record.pending = true; record.el.hidden = false; positionPins();
+      // Open immediately; reading existing reactions must not delay the picker.
+      const opening = openPicker(record);
+      void refresh(record);
+      await opening;
     } catch (error) { notify(error.message); }
   })();
 });

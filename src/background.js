@@ -5,6 +5,7 @@ import { parseReaction, COMMIT_ID } from './protocol.js';
 import { createAuth } from './auth.js';
 import { canonicalUrl, verifyPagePost } from './web.js';
 import { loadFollowing, filterReactions } from './following.js';
+import { placeFromMenu } from './context-menu.js';
 
 // Tokens are never exposed through chrome.storage to content scripts.
 const ready = Promise.all([
@@ -189,5 +190,5 @@ const setupMenu = () => chrome.contextMenus.removeAll(() => chrome.contextMenus.
 chrome.runtime.onInstalled.addListener(setupMenu);
 chrome.runtime.onStartup.addListener(setupMenu);
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'reacji-to-place' && tab?.id) chrome.tabs.sendMessage(tab.id, { type: 'place-reaction' }, { frameId: info.frameId || 0 }).catch(() => {});
+  void placeFromMenu(info, tab);
 });

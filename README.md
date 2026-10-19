@@ -71,6 +71,6 @@ Then run the website’s tests and deploy from that repository. Its `shared/ORIG
 
 ## Activation status
 
-The organization-owned app and Cloudflare secret are configured. Installation on **reacji-to/reacji-to-data** is still required before real commits can succeed. The app must not be installed on the extension or website repos. Live writes have not yet been verified.
+The organization-owned app is installed on **only reacji-to/reacji-to-data**, and the Cloudflare secret is configured. Installation scope and token access are verified. Cloudflare runtime tests cover public and private writes with mocked GitHub responses; a complete live reaction commit through a user’s extension still needs verification. The app must not be installed on the extension or website repos.
 
 MIT. Unicode data has its own notice in `THIRD_PARTY_NOTICES.md`. Independent of dev-null, X, LinkedIn, and GitHub.

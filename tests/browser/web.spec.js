@@ -1,6 +1,21 @@
 import {test,expect} from '@playwright/test';
 import {pagePost} from '../../src/web.js';
 
+test('picker opens while the existing-reaction read is stalled', async({page})=>{
+  await page.route('https://example.test/**',r=>r.fulfill({body:'<p id="target">A slow connection should not hide the picker.</p>',contentType:'text/html'}));
+  await page.exposeFunction('testSend',m=>m.type==='status'
+    ? {ok:true,value:{connected:false,actor:null}}
+    : new Promise(()=>{}));
+  await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:m=>window.testSend(m),onMessage:{addListener:fn=>window.fromBackground=fn}}};});
+  await page.goto('https://example.test/');await page.addScriptTag({path:'dist/content.js'});
+  await page.locator('#target').click({button:'right'});
+  const reply=await page.evaluate(()=>{let result;fromBackground({type:'place-reaction'},{},value=>result=value);return result;});
+  expect(reply).toEqual({handled:true});
+  await expect(page.getByRole('dialog')).toBeVisible({timeout:1500});
+  await expect(page.getByRole('searchbox')).toBeEditable();
+  await expect(page.getByText('Connect GitHub in settings before reacting.')).toBeVisible();
+});
+
 test('right-click placement persists, follows DOM movement, hides on mismatch, and separates Private',async({page})=>{
   const docs={public:new Map(),private:new Map()},writes=[];
   const html='<meta charset="utf-8"><style>body{font:18px system-ui;max-width:720px;margin:60px auto;padding:24px;background:#f6f7f8;color:#121417}p{padding:30px;background:white}</style><h1>A page worth reacting to</h1><p id="target">This particular sentence deserves a reaction.</p><input type="password" aria-label="Password">';
