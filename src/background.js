@@ -126,9 +126,10 @@ async function handle(message, sender) {
     checkUpdatesQuietly();
     const state = await auth.status();
     if (!trusted) delete state.pending;
-    const { privateRepositories = {} } = await chrome.storage.local.get('privateRepositories');
+    const { privateRepositories = {}, mirrorPublicPreferences = {}, mirrorErrors = {} } = await chrome.storage.local.get(['privateRepositories', 'mirrorPublicPreferences', 'mirrorErrors']);
     const view = await audienceState();
-    return { ...state, audience: view.audience, followingError: view.followingError, followingCount: view.following ? view.following.ids.length + view.following.logins.length : null, repository: REPOSITORY, privateRepository: privateRepositories[state.actor?.id] || null };
+    return { ...state, audience: view.audience, followingError: view.followingError, followingCount: view.following ? view.following.ids.length + view.following.logins.length : null, repository: REPOSITORY, privateRepository: privateRepositories[state.actor?.id] || null,
+      mirrorPublic: mirrorPublicPreferences[state.actor?.id] !== false, mirrorError: mirrorErrors[state.actor?.id] || null };
   }
   if (message.type === 'options') { await chrome.runtime.openOptionsPage(); return {}; }
   if (message.type === 'audience-save' && trusted) {
@@ -179,6 +180,14 @@ async function handle(message, sender) {
     await chrome.storage.local.set({ privateRepositories });
     return { repository: result.repository.name };
   }
+  if (message.type === 'mirror-public-save' && trusted) {
+    if (typeof message.enabled !== 'boolean') throw new Error('Choose whether to mirror public reactions.');
+    const actor = await api('/user', await requireToken());
+    const { mirrorPublicPreferences = {} } = await chrome.storage.local.get('mirrorPublicPreferences');
+    mirrorPublicPreferences[actor.id] = message.enabled;
+    await chrome.storage.local.set({ mirrorPublicPreferences });
+    return { enabled: message.enabled };
+  }
   if (message.type === 'read') {
     const post = content ? senderPost(message.post || message.commit, site, platform) : postRef(message.post || message.commit);
     await verifyPagePost(post);
@@ -195,13 +204,21 @@ async function handle(message, sender) {
       const siteUser = await api(`/users/${encodeURIComponent(message.username)}`, token);
       if (actor.id !== siteUser.id || (message.githubId && actor.id !== message.githubId)) throw new Error(`GitHub is @${actor.login}, but dev-null is @${message.username}. Sign in with the same account.`);
     }
-    const { privateRepositories = {} } = await chrome.storage.local.get('privateRepositories');
+    const { privateRepositories = {}, mirrorPublicPreferences = {} } = await chrome.storage.local.get(['privateRepositories', 'mirrorPublicPreferences']);
     const repository = privateRepositories[actor.id];
     if (message.type === 'private-read') return service('/v1/private/read', token, { username: message.username, githubId: message.githubId, repository, post });
     const event = parseReaction(message.event);
     if (!['public', 'private'].includes(message.visibility)) throw new Error('Choose Public or Private.');
     const result = await service('/v1/react', token, { event, visibility: message.visibility, username: message.username, githubId: message.githubId,
-      ...(message.visibility === 'private' ? { repository } : {}), requestId: crypto.randomUUID() });
+      repository, ...(message.visibility === 'public' ? { mirrorPublic: mirrorPublicPreferences[actor.id] !== false } : {}), requestId: crypto.randomUUID() });
+    if (result.mirror) {
+      try {
+        const { mirrorErrors = {} } = await chrome.storage.local.get('mirrorErrors');
+        if (result.mirror.status === 'failed') mirrorErrors[actor.id] = result.mirror.error;
+        else delete mirrorErrors[actor.id];
+        await chrome.storage.local.set({ mirrorErrors });
+      } catch { /* A saved reaction must survive preference-storage errors. */ }
+    }
     if (event.emoji && !event.moveFrom && message.trackUsage !== false) {
       // A preference-storage failure must never roll back a committed reaction.
       try {

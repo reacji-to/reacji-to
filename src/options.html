@@ -40,6 +40,9 @@
 <select id="private-repository"><option value="">Choose a repository</option></select>
 <div class="actions"><button id="private-refresh" type="button" class="secondary">Refresh repositories</button><button id="private-save" type="button">Use this repository</button></div>
 <p id="private-status" role="status" aria-live="polite"></p>
+<label class="checkbox"><input id="mirror-public" type="checkbox" checked aria-describedby="mirror-help"> Mirror my public reactions to this private repo</label>
+<p id="mirror-help" class="help">On by default. Once a repository is selected, new public reactions and changes are also copied to its <code>public/</code> folder so you can run your own automations. Private reactions stay in <code>data/</code>. Public reactions remain public. Existing history is not imported; turning this off leaves existing copies in place.</p>
+<p id="mirror-status" role="status" aria-live="polite" class="help"></p>
 </section>
 </section>
 <section aria-labelledby="how-title"><h2 id="how-title">What happens when you react</h2>

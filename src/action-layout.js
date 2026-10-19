@@ -8,7 +8,7 @@ const css = `
 [data-reacji-actions-compact] [data-reacji-actions-action]{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;width:100%!important;max-width:100%!important;padding:0 2px!important;gap:0!important;white-space:normal!important;overflow-wrap:normal;font-size:12px!important;line-height:1.4!important}
 [data-reacji-actions-compact] [data-reacji-actions-action] svg{flex:none;margin:6px 0!important}
 [data-reacji-actions-compact] [data-reacji-actions-action] span{max-width:100%;min-width:0}
-[data-reacji-actions-row] reacji-to-reactions{justify-self:center;min-width:0;position:relative;left:var(--reacji-actions-shift,0px)}
+[data-reacji-actions-row] reacji-to-reactions{display:flex;align-items:center;justify-self:center;min-width:0;position:relative;left:var(--reacji-actions-shift,0px)}
 `;
 export function layoutActions(anchor, host, article) {
   const row = anchor.parentElement;
@@ -21,8 +21,14 @@ export function layoutActions(anchor, host, article) {
   // Restore wrapper display before measuring visibility, including responsive hides.
   for (const el of row.querySelectorAll('[data-reacji-actions-wrapper]')) el.removeAttribute('data-reacji-actions-wrapper');
   row.setAttribute('data-reacji-actions-row', '');
+  // LinkedIn's SDUI thumb and its transparent menu hit target are one action.
+  // Keep their positioning wrapper intact instead of making the menu another
+  // grid column (and incorrectly switching the icon-only row to stacked labels).
+  const linkedInReaction = anchor.querySelector('button[aria-label^="Reaction button state:"]');
   const controls = [...row.querySelectorAll('button,a[href],[role="button"]')]
-    .filter(el => !el.parentElement.closest('button,a[href],[role="button"]') && el.getClientRects().length);
+    .filter(el => !el.parentElement.closest('button,a[href],[role="button"]') && el.getClientRects().length)
+    .filter(el => !linkedInReaction || !anchor.contains(el) || el === linkedInReaction)
+    .map(el => el === linkedInReaction ? anchor : el);
   if (!controls.some(control => anchor.contains(control)) && anchor.getClientRects().length) controls.push(anchor);
   for (const control of controls) {
     control.setAttribute('data-reacji-actions-action', '');
@@ -31,7 +37,7 @@ export function layoutActions(anchor, host, article) {
     }
   }
   // Labels wrap beneath the icons when equal slots become too narrow.
-  const compact = row.getBoundingClientRect().width / (controls.length + 1) < 80;
+  const compact = !linkedInReaction && row.getBoundingClientRect().width / (controls.length + 1) < 80;
   row.toggleAttribute('data-reacji-actions-compact', compact);
   host.toggleAttribute('data-compact', compact);
   // Center the icon itself, not the icon-plus-count box. Otherwise unequal

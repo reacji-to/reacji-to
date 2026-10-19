@@ -6,7 +6,7 @@ Give your agent this instruction:
 
 > Set up reacji.to for me using https://github.com/reacji-to/reacji-to/blob/main/SETUP.md. Install the extension in my browser, connect my GitHub account, create and connect a dedicated private repository for my reactions, and verify a private reaction. Reuse any working setup I already have. Explain what I can use it for and tell me when you need me to complete a browser or GitHub step.
 
-After setup, your agent can also help turn private reactions into bookmarks, reading queues, or other automations using GitHub Actions. See [step 7](#7-offer-automations-with-github-actions).
+After setup, your agent can also help turn private reactions and mirrored public reactions into bookmarks, reading queues, or other automations using GitHub Actions. See [step 7](#7-offer-automations-with-github-actions).
 
 ## What you can use it for
 
@@ -34,6 +34,7 @@ Use these defaults unless the user asks otherwise:
 - **Private storage:** create `YOUR_HANDLE/reacji-to-private`, with **Private** visibility and an initial README. Reuse an existing dedicated reactions repository if one is already configured. Do not repurpose an unrelated repository with the same name.
 - **First reaction:** a Private 🧪 on `https://example.com/`. Verify the save, then remove the test reaction and verify removal. Its history will remain in the private repository.
 - **Public reactions:** explain how to use them, but do not publish a test reaction unless the user has chosen to do so.
+- **Public mirroring:** leave **Mirror my public reactions to this private repo** enabled (on by default). The user's public saves also update `public/data/` in the selected private repo, separate from private reactions in `data/`. Honor an existing opt-out. These copies do not make the original reactions private.
 
 A request to follow this full guide includes creating the dedicated private repository. Do not make the user work out repository creation themselves if you have tools to do it. If they explicitly want **public-only** setup, skip private repository creation and app installation; neither is required for Public reactions.
 
@@ -117,6 +118,7 @@ Creating the repo is not enough. Complete both the GitHub App installation and t
 5. Return to extension settings and click **Refresh repositories**.
 6. Choose `YOUR_HANDLE/reacji-to-private` (or the name you actually created) in **Private repository**.
 7. Click **Use this repository**.
+8. Confirm **Mirror my public reactions to this private repo** is checked unless the user opted out. It starts copying on subsequent public saves; selecting a repository does not import historical reactions. Turning it off leaves existing copies in place.
 
 **Verify:** settings say **Using OWNER/REPO. Private reactions are ready.** After reopening settings, the shorter **Using OWNER/REPO.** status is normal. An empty repository list or merely seeing the repo on GitHub does not mean this step is complete.
 
@@ -145,6 +147,7 @@ Give a short walkthrough using the use cases above:
 - **To change or remove a reaction:** reopen its picker in the same visibility mode. Choose another emoji to replace it, or the same emoji to remove it.
 - **To choose whose public reactions appear:** in settings, under **Whose reactions you see**, choose **Everyone** or **People I follow on dev-null**. Use **Refresh following list** after changing follows. This filters what the user sees; it does not limit who can see their Public reactions.
 - **To share a profile:** use `https://reacji.to/YOUR_GITHUB_HANDLE`. Only public reactions appear there.
+- **To automate public reactions too:** keep mirroring enabled in settings and watch `public/data/` in the private repo. Copies contain only your public reactions for each post/page. Private reactions remain in `data/`.
 
 Explain these details before the user starts marking their own pages:
 
@@ -155,6 +158,8 @@ Explain these details before the user starts marking their own pages:
 ## 7. Offer automations with GitHub Actions
 
 **Agent: after private setup works, offer to write an automation for the user.** Explain that a private reaction can be a command: choose an emoji in the browser, and a GitHub Action processes the resulting commit in their private repository. Automations run on GitHub; the user's computer does not need to stay on after the reaction is saved.
+
+The same automations can consume mirrored public reactions in the separate `public/` folder. Use both path filters below for a combined automation, or only the relevant folder when the user wants one visibility mode. Mirroring is enabled by default once a private repository is connected. Public saves and private copies are separate commits: a copy can fail while the public save succeeds. The extension reports the error; after fixing repository/app access, the next public save on that post/page reconciles its current state, including removals and moves. There is no automatic historical import or background retry. Automations should tolerate delayed copies and missed intermediate states.
 
 Offer a few concrete choices:
 
@@ -181,13 +186,14 @@ If the user already requested an automation, proceed with that request. Otherwis
 4. Start with the working trigger check below. Replace `main` with the actual default branch if different. It runs after pushes that change reaction JSON, and it can also be run manually from the Actions tab.
 
 ```yaml
-name: Private reaction automation
+name: Reaction automation
 
 on:
   push:
     branches: [main]
     paths:
       - 'data/**/*.json'
+      - 'public/data/**/*.json'
   workflow_dispatch:
 
 permissions:
@@ -207,7 +213,7 @@ jobs:
           import json
           from pathlib import Path
 
-          files = sorted(Path("data").rglob("*.json"))
+          files = sorted(Path("data").rglob("*.json")) + sorted(Path("public/data").rglob("*.json"))
           for path in files:
               json.loads(path.read_text(encoding="utf-8"))
           print(f"Read {len(files)} reaction documents; trigger works.")
@@ -216,9 +222,11 @@ jobs:
 
 This starter validates the trigger and JSON access; **it does not create bookmarks yet**. The agent's next task is to write the chosen automation script, for example `scripts/update_bookmarks.py`, and replace the validation step with a call to it. Commit both the script and workflow to the private repository.
 
-Private saves use a GitHub App installation token, so their commits can trigger `push` workflows. Workflow commits made with GitHub's built-in `GITHUB_TOKEN` normally do not trigger another `push` workflow. Keep the `data/**/*.json` filter so changes to generated lists do not trigger this automation either. See [GitHub's workflow trigger documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+Private saves and public mirror copies use a GitHub App installation token, so their commits can trigger `push` workflows. Workflow commits made with GitHub's built-in `GITHUB_TOKEN` normally do not trigger another `push` workflow. Keep the `data/**/*.json` and `public/data/**/*.json` filters so changes to generated lists do not trigger this automation either. See [GitHub's workflow trigger documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
 
 ### Write the chosen automation
+
+Read private documents from `data/` and mirrored public documents from `public/data/`. The relative layout and reaction schema are the same; mirrors also include `visibility: "public"`. Only the owner's public reactions are copied, including their placements. Keep both folders read-only for automation scripts; put generated output elsewhere. Include visibility in the reaction key when treating a public and private reaction on the same target as separate actions, or deliberately deduplicate by URL for a combined bookmark list. A file can remain empty after the last reaction is removed.
 
 - **Read the saved data, not the commit message.** Current paths are `data/web/<page-hash>.json`, `data/x/<post-id>.json`, `data/linkedin/<post-id>.json`, and `data/<dev-null-id>.json`. Web reactions are under `placements[placementId].users[githubUserId]`; their excerpts are in `placements[placementId].anchor.quote` and URL in `post.url`. Post reactions use `users[githubUserId]`. A saved user entry includes `emoji`, `login`, `requestId`, and `at`. Verify these fields against the repository before coding.
 - **For bookmarks, rebuild from current state.** Collect the user's active 🔖 reactions into a stable, sorted list. Deduplicate by URL for one bookmark per page, or by platform/post/placement/user for separate marked passages. Removing or changing an emoji must update the list too; do not append every commit forever. For social posts, use the platform's post URL rather than assuming every record has `post.url`. A complete rebuild should produce identical output when rerun on the same input.
@@ -242,6 +250,7 @@ Extension version and installed folder: …
 Connected GitHub account: @…
 Private repository: https://github.com/…/… (verified Private)
 App access and extension repository selection: verified / remaining step
+Public mirroring: enabled / opted out / unavailable in installed release
 Private test: saved, survived reload, commit verified, removed / remaining step
 Automation: offered / skipped / workflow, emoji rule, output link, verification
 Public profile: https://reacji.to/… (empty until you add public reactions)
@@ -260,6 +269,7 @@ For public-only setup, mark the private steps as skipped by request. Include one
 | Wrong GitHub account or dev-null mismatch | Check the extension's connected handle and dev-null session. Use **Disconnect**, then **Connect GitHub** with the intended account. X and LinkedIn sign-ins do not change the extension's identity. |
 | Private repository does not appear | Check that creation finished, visibility is Private, the connected personal account owns it, and it is selected in the reacji.to GitHub App installation. Then **Refresh repositories**, select it, and click **Use this repository**. |
 | Private save fails | Recheck the selected repo and app access. A repository made public is rejected. Read the displayed error; do not broaden access to all repositories or create a token as a workaround. |
+| Public save succeeded but its private copy failed | Check the mirroring setting, selected private repository, and app access. The public save remains successful. After correcting access, the next public save on that post/page retries its current state. Untouched pages are not backfilled. |
 | Automation does not run after a private save | Check that the workflow is on the correct branch in the private repo, Actions is enabled, and the new commit changed a path matched by the filter. Check Actions usage limits and workflow errors. Run it manually to distinguish a trigger problem from a script failure. |
 | Service unavailable | Check whether [reacji.to](https://reacji.to/) loads, retry once, and check connection status. If it persists, report the error and extension version without credentials or private page text. |
 | Reactions or follows seem stale | Visible pages normally refresh reaction data within 30 seconds. The following list is cached for five minutes; use **Refresh following list** to update it sooner. |

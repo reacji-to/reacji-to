@@ -74,6 +74,46 @@ test('LinkedIn SDUI resolves the canonical post and updates recycled cards', asy
   expect((await page.evaluate(()=>sent.filter(m=>m.type==='react').at(-1))).event.post.id).toBe('7517120066396717999');
 });
 
+test('LinkedIn SDUI keeps the reaction-menu overlay with the thumb and aligns the icon row', async ({page}) => {
+  const icon = '<svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="8"/></svg>';
+  await sduiFeed(page, `<style>
+    body{max-width:600px;margin:24px auto} [role=listitem]{padding:0 12px}
+    .actions{align-items:center;height:48px;gap:0}
+    .actions button,.actions a{display:flex;align-items:center;gap:4px;border:0;background:none;color:#555;padding:6px;font:14px system-ui}
+    .like-action{position:relative;display:flex}
+    .actions [aria-label="Open reactions menu"]{position:absolute;inset:0;opacity:0}
+    .summary svg{width:12px;height:12px;margin-left:-4px}
+    </style><div role="listitem" componentkey="update-card-focus123"><h2>Feed post</h2><p>Illustrative LinkedIn action row</p>
+    <div class="actions"><div class="like-action"><button aria-label="Reaction button state: no reaction">${icon}<span>10</span></button><button aria-label="Open reactions menu"></button></div>
+    <button aria-label="Comment">${icon}</button><button aria-label="Repost">${icon}<span>2</span></button><a aria-label="Send" href="#send">${icon}</a>
+    <a class="summary" href="#reactions" aria-label="10 reactions">${icon}${icon}${icon}</a></div>
+    <div componentkey="${sduiKey('7517120023304282112')}"></div></div>`);
+  const eyes = page.getByRole('button', { name: 'React with an emoji', exact: true });
+  const metrics = () => page.locator('.actions').evaluate(row => {
+    const elements = [row.querySelector('.like-action svg'), row.querySelector('reacji-to-reactions').shadowRoot.querySelector('.reaction-slot'),
+      ...[...row.querySelectorAll(':scope > button,:scope > a:not(.summary)')].map(el => el.querySelector('svg'))];
+    return elements.map(el => { const b = el.getBoundingClientRect(); return { x:b.x+b.width/2, y:b.y+b.height/2 }; });
+  });
+  for (const width of [1280, 760, 390, 320]) {
+    await page.setViewportSize({width, height:900});
+    await expect(eyes).toBeVisible();
+    await expect.poll(async () => {
+      const m = await metrics(), gaps = m.slice(1).map((p,i) => p.x-m[i].x);
+      return Math.max(Math.max(...gaps)-Math.min(...gaps), Math.max(...m.map(p=>p.y))-Math.min(...m.map(p=>p.y)));
+    }).toBeLessThan(1);
+    await expect(page.getByRole('button', {name:'Open reactions menu',exact:true})).toHaveCSS('position','absolute');
+    await expect(page.locator('.like-action')).toHaveCSS('display','flex');
+    const before = await metrics(), box = await eyes.boundingBox();
+    await eyes.click(); await page.getByRole('searchbox').fill('😀'); await page.getByRole('button',{name:'grinning face',exact:true}).click();
+    const selected = page.locator('.chip[aria-pressed=true]');
+    await expect.poll(() => selected.boundingBox()).toEqual(box);
+    expect(await metrics()).toEqual(before);
+    await page.locator('[role=listitem]').screenshot({path:`artifacts/linkedin-sdui-alignment-${width}.png`});
+    await selected.click(); await expect(eyes).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  }
+});
+
 test('LinkedIn SDUI resolves offscreen posts only when scrolled into view', async ({page}) => {
   await sduiFeed(page, sduiPost('7517120023304282112','margin-top:1600px'));
   expect(await page.evaluate(()=>sent.filter(m=>m.type==='linkedin-resolve').length)).toBe(0);

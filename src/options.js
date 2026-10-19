@@ -46,6 +46,9 @@ async function refresh() {
     document.querySelector('#audience-status').textContent = state.followingError || (state.audience === 'following' ? `Showing your reactions and ${state.followingCount ?? 0} people you follow.` : 'Showing everyone’s public reactions.');
     document.querySelector('#private-setup').hidden = !state.connected;
     document.querySelector('#private-status').textContent = state.privateRepository ? `Using ${state.privateRepository}.` : 'Choose a repository to enable Private reactions.';
+    document.querySelector('#mirror-public').checked = state.mirrorPublic !== false;
+    document.querySelector('#mirror-status').textContent = state.mirrorPublic === false ? 'Mirroring is off. Existing copies stay in your repository.'
+      : state.mirrorError || (state.privateRepository ? 'New public reactions and changes will be copied to public/.' : 'Choose a private repository to start mirroring.');
     disconnect.hidden = !state.connected && !state.actor;
     connect.textContent = state.connected ? 'Reconnect GitHub' : 'Connect GitHub';
     if (state.pending) return showPending(state.pending);
@@ -103,6 +106,18 @@ document.querySelector('#following-refresh').addEventListener('click', async () 
   catch (error) { audienceStatus.textContent = error.message; }
 });
 
+const mirrorPublic = document.querySelector('#mirror-public');
+mirrorPublic.addEventListener('change', async () => {
+  const enabled = mirrorPublic.checked;
+  mirrorPublic.disabled = true;
+  document.querySelector('#mirror-status').textContent = 'Saving…';
+  try { await send({ type: 'mirror-public-save', enabled }); await refresh(); }
+  catch (error) {
+    mirrorPublic.checked = !enabled;
+    document.querySelector('#mirror-status').textContent = error.message;
+  } finally { mirrorPublic.disabled = false; }
+});
+
 const privateStatus = document.querySelector('#private-status');
 const repositorySelect = document.querySelector('#private-repository');
 for (const action of ['private-create', 'private-install']) document.querySelector(`#${action}`).addEventListener('click', () => send({ type: action }).catch(error => { privateStatus.textContent = error.message; }));
@@ -123,7 +138,7 @@ document.querySelector('#private-save').addEventListener('click', () => {
   repositoryQueue = repositoryQueue.catch(() => {}).then(async () => {
     try {
       const result = await send({ type: 'private-save', repository });
-      if (version === repositoryVersion) privateStatus.textContent = `Using ${result.repository}. Private reactions are ready.`;
+      if (version === repositoryVersion) { await refresh(); privateStatus.textContent = `Using ${result.repository}. Private reactions are ready.`; }
     } catch (error) {
       if (version === repositoryVersion) { await refresh(); privateStatus.textContent = error.message; }
     }

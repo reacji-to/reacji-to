@@ -221,6 +221,7 @@ function choose(record, emoji, placement = record.placement, { trackUsage = true
         else r.data = savedDocument;
       }
       if (optimistic.get(key) === pending) optimistic.delete(key);
+      if (result.mirror?.status === 'failed') notify(result.mirror.error);
     } catch (error) {
       // A failure for an earlier click must never undo a newer choice.
       if (optimistic.get(key) === pending) {

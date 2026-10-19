@@ -16,6 +16,7 @@ test('real extension completes device OAuth, resumes after reload, and submits w
   const oauthRequests = [], submissions = [];
   let siteUsername = 'octocat';
   let approved = false;
+  let mirrorFails = false;
   try {
     await context.route('https://github.com/**', route => {
       const url = new URL(route.request().url());
@@ -53,7 +54,8 @@ test('real extension completes device OAuth, resumes after reload, and submits w
       if (path === '/v1/private/validate') return route.fulfill({ json: { actor: { id: 42, login: 'octocat' }, repository: { name: body.repository } } });
       if (path === '/v1/private/read') return route.fulfill({ json: { version: 1, commit: body.commit, users: {} } });
       submissions.push(body);
-      return route.fulfill({ json: { actor: { id: 42, login: 'octocat' }, document: { version: 1, commit: body.event.commit, users: { 42: { login: 'octocat', emoji: body.event.emoji } } } } });
+      return route.fulfill({ json: { actor: { id: 42, login: 'octocat' }, document: { version: 1, commit: body.event.commit, users: { 42: { login: 'octocat', emoji: body.event.emoji } } },
+        ...(mirrorFails && body.visibility === 'public' && body.mirrorPublic ? { mirror: { status: 'failed', error: 'Public reaction saved, but its private-repo copy failed. Check settings.' } } : {}) } });
     });
     await context.route('https://raw.githubusercontent.com/**', route => route.fulfill({ status: 404, body: '' }));
     await context.route('https://dev-null.sh/**', route => new URL(route.request().url()).pathname === '/@octocat/following' ? route.fulfill({contentType:'text/html',body:`<script data-page="app" type="application/json">${JSON.stringify({component:'user/connections',props:{type:'following',user:{username:'octocat'},users:{data:[{username:'friend',avatar_url:'https://avatars.githubusercontent.com/u/99?v=4'}],next_page_url:null}}})}</script>`}) : route.request().headers()['x-inertia'] ? route.fulfill({ json: { props: { auth: { user: siteUsername ? { username: siteUsername } : null } } } }) : route.fulfill({ path: 'fixtures/feed.html', contentType: 'text/html' }));
@@ -108,6 +110,8 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     await page.getByRole('searchbox').press('Escape');
     expect(submissions[0].event.emoji).toBe('🚀');
     expect(submissions[0].visibility).toBe('public');
+    expect(submissions[0].mirrorPublic).toBe(true);
+    expect(submissions[0].repository).toBeUndefined();
     expect(oauthRequests.filter(value => value === '/login/device/code')).toHaveLength(1);
     // Site sign-out and account changes must be checked again immediately before every mutation.
     siteUsername = 'other';
@@ -126,6 +130,13 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     await page.getByLabel('Private repository').selectOption('octocat/reacji-to-private');
     await page.getByRole('button', { name: 'Use this repository', exact: true }).click();
     await expect(page.getByText('Private reactions are ready.', { exact: false })).toBeVisible();
+    await expect(page.locator('#mirror-public')).toBeChecked();
+    await expect(page.locator('#mirror-status')).toContainText('public/');
+    await page.locator('#private-setup').screenshot({ path: '.impeccable/review/mirror-settings-desktop.png' });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await page.locator('#private-setup').screenshot({ path: '.impeccable/review/mirror-settings-mobile.png' });
+    await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('https://dev-null.sh/');
     await unreactedPost.getByRole('button', { name: 'React with an emoji', exact: true }).click();
     await page.getByRole('button', { name: 'Private', exact: true }).click();
@@ -134,15 +145,34 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     await expect.poll(()=>submissions.length).toBe(2);
     expect(submissions[1].repository).toBe('octocat/reacji-to-private');
     expect(submissions[1].visibility).toBe('private');
+    expect(submissions[1].mirrorPublic).toBeUndefined();
     await context.route('https://x.com/**', route => route.fulfill({ contentType: 'text/html', body: '<meta charset="utf-8"><article data-testid="tweet"><a href="/person/status/123456789"><time>Today</time></a><div role="group"><button data-testid="reply">Reply</button><button data-testid="like">Like</button></div></article>' }));
     siteUsername = null; // X reactions must not require a dev-null session.
+    mirrorFails = true;
     await page.goto('https://x.com/home');
     await page.getByRole('button', { name: 'React with an emoji', exact: true }).click();
+    await page.getByRole('button', { name: 'Public', exact: true }).click();
     await page.getByRole('searchbox').fill('🚀'); await page.getByRole('button', { name: 'rocket', exact: true }).click();
     await expect(page.getByRole('button', { name: /🚀, 1 reaction, yours/ })).toBeVisible();
     await expect.poll(()=>submissions.length).toBe(3);
     expect(submissions[2].event.post).toEqual({ platform: 'x', id: '123456789' });
     expect(submissions[2].username).toBeUndefined();
+    expect(submissions[2].repository).toBe('octocat/reacji-to-private');
+    expect(submissions[2].mirrorPublic).toBe(true);
+    await expect(page.getByText('Public reaction saved, but its private-repo copy failed. Check settings.', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /🚀, 1 reaction, yours/ })).toBeVisible();
+    await page.goto(url);
+    await expect(page.locator('#mirror-status')).toContainText('private-repo copy failed');
+    await page.locator('#mirror-public').uncheck();
+    await expect(page.locator('#mirror-status')).toContainText('Mirroring is off');
+    await page.reload();
+    await expect(page.locator('#mirror-public')).not.toBeChecked();
+    await page.goto('https://x.com/home');
+    await page.getByRole('button', { name: /🚀, 1 reaction, yours/ }).click();
+    await expect.poll(() => submissions.length).toBe(4);
+    expect(submissions[3].mirrorPublic).toBe(false);
+    expect(submissions[3].event.emoji).toBeNull();
+    expect(await worker.evaluate(async () => (await chrome.storage.local.get('mirrorPublicPreferences')).mirrorPublicPreferences)).toEqual({ 42: false });
     await page.goto(url); await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
     await expect(page.getByText('Not connected.', { exact: false })).toBeVisible();
   } finally { await context.close(); await rm(root, { recursive: true, force: true }); }

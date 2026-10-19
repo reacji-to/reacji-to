@@ -23,7 +23,8 @@ For a complete walkthrough you can give to your agent, see [Set up reacji.to](SE
 3. Open the extension settings and **Connect GitHub**. Enter the displayed code on GitHub and authorize **reacji-to**. No personal access token is needed.
 4. For Private reactions, choose **Choose repositories on GitHub**, select **Only select repositories**, and install on your private reactions repo. **Create a new private repo** opens GitHub’s own creation form; choose Private, then install the app on it.
 5. Refresh the repository list in extension settings, select your private repo, and save.
-6. Reload your open webpages. Hold Option/Alt and click a location, select Public or Private, and choose an emoji.
+6. **Mirror my public reactions to this private repo** is on by default. Public saves also copy your public reactions for that post/page to `public/data/` in the selected repo, separate from private reactions in `data/`. You can turn mirroring off in settings.
+7. Reload your open webpages. Hold Option/Alt and click a location, select Public or Private, and choose an emoji.
 
 The extension checks for new stable GitHub releases on startup and during use, at most every 12 hours. A toolbar ↑ badge and an **Update available** notice in settings link to the download. You can also use **Check for updates** in settings. Unpacked extensions cannot install updates themselves: replace their files, click Reload on the extensions page, and reload open webpages. Checks use public release metadata without your GitHub token. Browser settings pages, the extension store, and other browser-protected pages cannot host reactions.
 
@@ -32,6 +33,7 @@ The extension checks for new stable GitHub releases on startup and during use, a
 - One JSON file per dev-null/X/LinkedIn post.
 - One JSON file per webpage URL, identified by a SHA-256 hash. Each placement stores its DOM path, element type, relative position, and up to 160 characters of visible text. Form-field values are never captured.
 - Public writes update the post/page and the account’s public profile index in one Git commit. Private writes never touch the public repo or profile.
+- With mirroring enabled and a private repo selected, a separate commit copies only your public reactions into `public/`. Edits, moves, and removals reconcile that post/page; a failed copy leaves the public save intact and shows an error. Check repository/app access, then make a public save on that post/page to retry. There is no background retry or historical backfill, and disabling mirroring leaves existing copies in place.
 - URL fragments used as SPA routes are preserved; ordinary section fragments and common tracking parameters are omitted. Meaningful query parameters remain part of the saved URL.
 
 Placements resolve by element path and text. If that path changes, a unique matching excerpt can recover it. Ambiguous or missing targets stay hidden. Canvas internals, closed shadow roots, and content that changes completely cannot reliably be anchored. The extension checks visible pages every 30 seconds; the public dev-null following list is cached for five minutes.
@@ -39,6 +41,8 @@ Placements resolve by element path and text. If that path changes, a unique matc
 One reaction per account per post or placement **in each visibility mode**. Pick another emoji to replace it. To clear a webpage reaction, Option/Alt-click your emoji again, or open it and choose **Clear reaction**. Option/Alt-clicking the same page target also clears your existing reaction. Picking your existing emoji still removes it. Public and Private are independent stores; clearing affects only the selected mode, and changing the switch never migrates an existing reaction. Git history preserves removed reactions. The following filter controls what you see, not who can see your public reactions.
 
 ## Identity and privacy
+
+For automation setup and the JSON layout, see the [agent setup walkthrough](SETUP.md#7-offer-automations-with-github-actions). Watch `data/**` for private reactions and `public/data/**` for your mirrored public reactions in your own repository.
 
 OAuth credentials stay in extension-only storage and go only to GitHub and `https://reacji.to`. The Worker independently verifies GitHub identity and uses an installation token narrowed to a single repository for commits. The app private key stays in a Cloudflare secret.
 
