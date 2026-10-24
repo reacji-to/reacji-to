@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "reacji.to",
   "version": "0.4.3",
-  "description": "React anywhere with any emoji. Save to GitHub or post emoji and context to one Slack channel.",
+  "description": "React anywhere with one private, local emoji and your own searchable labels.",
   "minimum_chrome_version": "120",
   "permissions": [
     "storage",

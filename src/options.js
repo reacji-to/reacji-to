@@ -1,8 +1,7 @@
 import { initializeBackendOptions } from './backend-options.js';
-import { initializeScreenshotOptions } from './screenshot-options.js';
 import { initializeSlackOptions } from './slack-options.js';
 import { initializeRaycastOptions } from './raycast-options.js';
-import { REPOSITORY } from './config.js';
+import { initializeEmojiAliasOptions } from './emoji-alias-options.js';
 const status = document.querySelector('#status');
 const disconnect = document.querySelector('#disconnect');
 const connect = document.querySelector('#oauth-connect');
@@ -11,12 +10,18 @@ const code = document.querySelector('#user-code');
 const remember = document.querySelector('#remember');
 let timer;
 let pendingId = null;
-document.querySelector('#repository').href = `https://github.com/${REPOSITORY}`;
 const send = async message => {
   const result = await chrome.runtime.sendMessage(message);
   if (!result?.ok) throw new Error(result?.error || 'Could not reach the extension. Reload and try again.');
   return result.value;
 };
+initializeEmojiAliasOptions(send);
+document.querySelector('#copy-agent-instructions').addEventListener('click', async () => {
+  const message = document.querySelector('#agent-instructions').textContent;
+  const output = document.querySelector('#agent-copy-status');
+  try { await navigator.clipboard.writeText(message); output.textContent = 'Copied. Paste it to your agent.'; }
+  catch { output.textContent = 'Select the instructions above and copy them, then paste them to your agent.'; }
+});
 function report(message, error = false) { status.textContent = message; status.toggleAttribute('data-error', error); }
 function stopPolling() { clearTimeout(timer); pendingId = null; device.hidden = true; connect.disabled = false; }
 function showPending(pending) {
@@ -46,20 +51,15 @@ async function poll(id) {
 async function refresh() {
   try {
     const state = await send({ type: 'status' });
-    document.querySelector('#audience').value = state.audience || 'everyone';
-    document.querySelector('#audience-status').textContent = state.followingError || (state.audience === 'following' ? `Showing your reactions and ${state.followingCount ?? 0} people you follow.` : 'Showing everyone’s public reactions.');
     document.querySelector('#private-setup').hidden = !state.connected;
-    document.querySelector('#private-status').textContent = state.privateRepository ? `Using ${state.privateRepository}.` : 'Choose a repository to enable Private reactions.';
-    document.querySelector('#mirror-public').checked = state.mirrorPublic !== false;
-    document.querySelector('#mirror-status').textContent = state.mirrorPublic === false ? 'Mirroring is off. Existing copies stay in your repository.'
-      : state.mirrorError || (state.privateRepository ? 'New public reactions and changes will be copied to public/.' : 'Choose a private repository to start mirroring.');
+    document.querySelector('#private-status').textContent = state.privateRepository ? `Backing up new local changes to ${state.privateRepository}.` : 'Choose a private repository to enable backup.';
     disconnect.hidden = !state.connected && !state.actor;
     connect.textContent = state.connected ? 'Reconnect GitHub' : 'Connect GitHub';
     if (state.pending) return showPending(state.pending);
     stopPolling();
     if (state.authError) return report(state.authError, true);
-    report(state.connected ? `Connected as @${state.actor.login}. Ready for one-click reactions.`
-      : state.oauthAvailable ? 'Not connected. Click Connect GitHub to get started.'
+    report(state.connected ? `Connected as @${state.actor.login}. Private backup and identity-based integrations are available.`
+      : state.oauthAvailable ? 'GitHub is optional. Connect it only for private backup or an identity-based integration.'
       : 'GitHub App registration is not finished for this build.');
     connect.disabled = !state.oauthAvailable;
   } catch (error) { report(error.message, true); }
@@ -90,38 +90,6 @@ disconnect.addEventListener('click', async () => {
 });
 refresh();
 
-const audienceStatus = document.querySelector('#audience-status');
-let audienceVersion = 0, audienceQueue = Promise.resolve();
-document.querySelector('#audience').addEventListener('change', event => {
-  const value = event.target.value, version = ++audienceVersion;
-  audienceStatus.textContent = value === 'following' ? 'Showing people you follow. Saving…' : 'Showing everyone. Saving…';
-  audienceQueue = audienceQueue.catch(() => {}).then(async () => {
-    try {
-      const result = await send({ type: 'audience-save', audience: value });
-      if (version === audienceVersion) audienceStatus.textContent = result.error || 'Saved. Open pages refresh within 30 seconds.';
-    } catch (error) {
-      if (version === audienceVersion) { await refresh(); audienceStatus.textContent = error.message; }
-    }
-  });
-});
-document.querySelector('#following-refresh').addEventListener('click', async () => {
-  audienceStatus.textContent = 'Loading your dev-null following list…';
-  try { const result = await send({ type: 'following-refresh' }); audienceStatus.textContent = `Loaded ${result.count} people you follow. Open pages refresh within 30 seconds.`; }
-  catch (error) { audienceStatus.textContent = error.message; }
-});
-
-const mirrorPublic = document.querySelector('#mirror-public');
-mirrorPublic.addEventListener('change', async () => {
-  const enabled = mirrorPublic.checked;
-  mirrorPublic.disabled = true;
-  document.querySelector('#mirror-status').textContent = 'Saving…';
-  try { await send({ type: 'mirror-public-save', enabled }); await refresh(); }
-  catch (error) {
-    mirrorPublic.checked = !enabled;
-    document.querySelector('#mirror-status').textContent = error.message;
-  } finally { mirrorPublic.disabled = false; }
-});
-
 const privateStatus = document.querySelector('#private-status');
 const repositorySelect = document.querySelector('#private-repository');
 for (const action of ['private-create', 'private-install']) document.querySelector(`#${action}`).addEventListener('click', () => send({ type: action }).catch(error => { privateStatus.textContent = error.message; }));
@@ -142,7 +110,7 @@ document.querySelector('#private-save').addEventListener('click', () => {
   repositoryQueue = repositoryQueue.catch(() => {}).then(async () => {
     try {
       const result = await send({ type: 'private-save', repository });
-      if (version === repositoryVersion) { await refresh(); privateStatus.textContent = `Using ${result.repository}. Private reactions are ready.`; }
+      if (version === repositoryVersion) { await refresh(); privateStatus.textContent = `Using ${result.repository}. New local changes will be backed up privately.`; }
     } catch (error) {
       if (version === repositoryVersion) { await refresh(); privateStatus.textContent = error.message; }
     }
@@ -173,7 +141,5 @@ refreshUpdates();
 initializeRaycastOptions(send);
 
 initializeSlackOptions(send);
-
-initializeScreenshotOptions(send);
 
 initializeBackendOptions(send);

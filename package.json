@@ -1,7 +1,7 @@
 {
   "name": "reacji-to",
   "version": "0.4.3",
-  "description": "Chrome and Helium extension for public and private emoji reactions anywhere on the web.",
+  "description": "Chrome and Helium extension for private, local emoji reactions anywhere on the web.",
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node --test tests/*.test.js",

@@ -11,7 +11,7 @@ test('a new provider uses the same registry, routing, catalog and dispatcher', a
     catalog: () => [{ emoji: '📝', name: 'Save note' }], describe: emoji => ({ emoji, destination: 'notes', description: 'Saves a note' }) };
   const registry = createDestinationRegistry([...destinations.entries, note]);
   const context = { state: {}, catalogs: {}, unicode: [], emojiName: x => x };
-  assert.equal(registry.resolve('public', '📝', context), 'notes');
+  assert.equal(registry.resolve('local', '📝', context), 'notes');
   assert.equal(registry.resolve('raycast', '📝', context), 'raycast');
   assert.equal(registry.action('notes', '📝', context).description, 'Saves a note');
   assert.equal(registry.dataField('notes'), 'notesData');

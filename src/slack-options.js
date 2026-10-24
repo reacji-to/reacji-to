@@ -43,7 +43,6 @@ export function initializeSlackOptions(send) {
     if (!state.connected) { report(state.available === false ? 'This Worker needs Slack app credentials. See the Slack setup guide.' : 'Connect Slack to import its emojis and authorize one posting channel.'); return; }
     const [catalog, list] = await Promise.all([send({ type: 'slack-emojis', refresh: true }), send({ type: 'slack-channels' })]);
     emojis = catalog.emojis; channels = list.channels;
-    $('slack-default').value = state.settings.defaultDestination;
     rules = state.settings.rules.map(rule => ({ ...rule }));
     fillChannels(); renderRules();
     $('slack-emoji-names').replaceChildren(...emojis.map(item => new Option(item.name, item.name)));
@@ -71,7 +70,7 @@ export function initializeSlackOptions(send) {
   });
   $('slack-save').addEventListener('click', event => busy(event.currentTarget, async () => {
     report('Saving…');
-    const result = await send({ type: 'slack-settings', settings: { defaultDestination: $('slack-default').value, channel: $('slack-channel').value, rules } });
+    const result = await send({ type: 'slack-settings', settings: { defaultDestination: 'github', channel: $('slack-channel').value, rules } });
     state.settings = result.settings; rules = result.settings.rules; renderRules();
     report('Saved. Reopen the picker on your page to load the new destinations.');
   }));

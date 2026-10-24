@@ -9,6 +9,7 @@ async function setup(page) {
     window.chrome = { runtime: { sendMessage: async message => {
       sent.push(message);
       if (message.type === 'status') return { ok: true, value: { connected: true, actor: { id: 42, login: 'octocat' } } };
+      if (message.type === 'emoji-alias-list') return { ok: true, value: { aliases: [{ name: 'design', emoji: '🎨' }] } };
       if (message.type === 'react') {
         docs[message.event.post.id] = { placements: { [message.event.placement.id]: { anchor: message.event.placement, users: { 42: { login: 'octocat', emoji: message.event.emoji } } } } };
         return { ok: true, value: { actor: { id: 42, login: 'octocat' }, document: docs[message.event.post.id] } };
@@ -18,6 +19,16 @@ async function setup(page) {
   });
   await page.goto('https://example.com/article'); await page.addScriptTag({ path: 'dist/content.js' });
 }
+test('opening from the eyes focuses search and Return chooses a named emoji', async ({ page }) => {
+  await setup(page);
+  await page.keyboard.down('Alt'); await page.locator('#passage').click(); await page.keyboard.up('Alt');
+  const search = page.getByRole('searchbox');
+  await expect(search).toBeFocused();
+  await search.fill('design');
+  await expect(page.getByRole('button', { name: 'design — artist palette', exact: true })).toBeVisible();
+  await search.press('Enter');
+  await expect.poll(() => page.evaluate(() => sent.find(message => message.type === 'react')?.event.emoji)).toBe('🎨');
+});
 test('eyes drag selects a text span, previews it and saves a restorable highlight', async ({ page }) => {
   await setup(page);
   const points = await page.locator('strong').evaluate(el => {
@@ -50,7 +61,7 @@ test('a new integration descriptor renders in the one selector and dispatches wi
   const built = await build({ stdin: { contents: `import {initializeReactions} from './src/reaction-app.js'; import {destinations} from './src/destinations.js'; import {createDestinationRegistry} from './src/destination-registry.js'; initializeReactions({runtime:chrome.runtime,destinations:createDestinationRegistry([...destinations.entries,{id:'notes',label:'Notes',catalog:()=>[{emoji:'📝',name:'Save note'}],describe:emoji=>({emoji,destination:'notes',description:'Saves a note'}),loadWhen:()=>true}])});`, resolveDir: path.resolve('.') }, bundle: true, write: false, loader: { '.css': 'text' } });
   await page.addScriptTag({ content: built.outputFiles[0].text });
   await page.keyboard.down('Alt'); await page.locator('p').click(); await page.keyboard.up('Alt');
-  await page.getByRole('group', { name: 'Reaction visibility' }).getByRole('button', { name: 'Notes' }).click();
+  await page.getByRole('group', { name: 'Reaction storage' }).getByRole('button', { name: 'Notes' }).click();
   const action = page.getByRole('button', { name: 'Save note' }); await action.hover();
   await expect(page.locator('.action-hint')).toContainText('Goes to Notes');
   await action.click();

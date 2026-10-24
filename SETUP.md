@@ -1,277 +1,61 @@
 # Set up reacji.to with your agent
 
-**reacji.to lets you put emoji reactions on webpages and posts using your GitHub identity.** Keep reactions in your own private GitHub repository, or share them publicly on the page and at `https://reacji.to/YOUR_GITHUB_HANDLE`.
+reacji.to puts one personal emoji reaction on any post or passage. Reactions are saved in the browser first. They are private and local by default.
 
-Give your agent this instruction:
+Paste this to your agent:
 
-> Set up reacji.to for me using https://github.com/reacji-to/reacji-to/blob/main/SETUP.md. Install the extension in my browser, connect my GitHub account, create and connect a dedicated private repository for my reactions, and verify a private reaction. Reuse any working setup I already have. Explain what I can use it for and tell me when you need me to complete a browser or GitHub step.
+> Use https://github.com/reacji-to/reacji-to/blob/main/SETUP.md to install or update reacji.to, set up my emoji labels, and configure any private backup or emoji actions I ask for. Reuse my current setup, make the changes for me where possible, and verify them in my browser.
 
-After setup, your agent can also help turn private reactions and mirrored public reactions into bookmarks, reading queues, or other automations using GitHub Actions. See [step 7](#7-offer-automations-with-github-actions).
+## Agent instructions
 
-## What you can use it for
+Complete the requested setup. Inspect the current extension and settings before changing anything. Let the user handle passwords, two-factor authentication, and authorization screens that require their interaction. Never ask them to paste credentials into chat.
 
-| Use case | Example |
-| --- | --- |
-| Remember what matters while researching | Put 🔍 on a claim to investigate, 💡 beside a useful idea, or ⭐ on a passage to revisit. Use Private for your own markers. |
-| Track your progress through documentation | Use ✅ for a section you have worked through and ❓ where you want to return with a question. |
-| Compare things you are considering | Mark a product, trip idea, or job listing with ❤️, 🤔, or 👎. Keep your preferences private. |
-| React to posts across sites | Use the eyes picker on dev-null, X, and LinkedIn. Your reacji.to identity is your GitHub account, regardless of your account on the site. |
-| Share what catches your attention | Choose Public to show a reaction to other extension users and on your reacji.to profile. |
-| Browse with reactions from people you follow | Filter public reactions to **People I follow on dev-null** in settings. Your own reactions remain visible. |
-| Bookmark with an emoji | Configure an Action so a Private 🔖 adds the page to your own bookmark list, and removing it removes the bookmark. |
-| Build something from your own reaction data | Have your agent configure Actions to maintain a reading queue, group marked URLs, or prepare a digest after private commits. See step 7. |
+### Install or update the extension
 
-These are emoji markers, not a full notes or task app. They do not automatically create reminders, save a copy of a page, or organize a reading list. A marker can reappear when you revisit a page if its target still matches.
+1. Reuse a working reacji.to installation in the user's normal Chrome or Helium profile. Do not install a duplicate.
+2. If it is missing, download `reacji-to.zip` from the [latest release](https://github.com/reacji-to/reacji-to/releases/latest), extract it into a permanent folder, and load that folder from the browser's extensions page with Developer mode enabled.
+3. Reload pages that were open before installation.
+4. Verify that holding **Option** on macOS or **Alt** on Windows/Linux shows the eyes cursor. Clicking a post or passage must open a focused emoji search field.
 
-## Agent: your task and defaults
+### Create useful emoji labels
 
-**Complete the setup; do not stop after describing the steps.** Use the tools available to you to download the extension, create the private repository, and configure what you can. For a step your tools cannot perform, bring the user to the right screen, give the exact action, and resume when they finish.
+The user can type a familiar label such as `design` and choose its designated emoji. Labels stay in browser storage with the rest of the local configuration.
 
-Use these defaults unless the user asks otherwise:
+When the user asks for a new label or category:
 
-- **Browser:** the desktop Chrome or Helium profile the user normally uses. Inspect the available browsers and existing extension first; ask only if the intended profile is unclear.
-- **GitHub identity:** the user's intended personal account. Check that the browser, extension, and any GitHub CLI you use agree before creating a repository.
-- **Private storage:** create `YOUR_HANDLE/reacji-to-private`, with **Private** visibility and an initial README. Reuse an existing dedicated reactions repository if one is already configured. Do not repurpose an unrelated repository with the same name.
-- **First reaction:** a Private 🧪 on `https://example.com/`. Verify the save, then remove the test reaction and verify removal. Its history will remain in the private repository.
-- **Public reactions:** explain how to use them, but do not publish a test reaction unless the user has chosen to do so.
-- **Public mirroring:** leave **Mirror my public reactions to this private repo** enabled (on by default). The user's public saves also update `public/data/` in the selected private repo, separate from private reactions in `data/`. Honor an existing opt-out. These copies do not make the original reactions private.
+1. Ask what the label should mean only when the intended workflow is unclear.
+2. Choose or confirm one canonical emoji for it. Examples: `design` → 🎨, `read` → 📚, `question` → ❓, `ship` → 🚀.
+3. Open **Settings → Emoji labels** and save the label with that emoji. Add a small number of useful synonyms only when they refer to the same concept.
+4. Keep one emoji consistent across the user's related category and automation. If `design` is 🎨, use 🎨 for its Raycast or other action too.
+5. Verify the result: open the eyes picker, type the label immediately, confirm the autocomplete result, press Return, and check that the reaction appears.
 
-A request to follow this full guide includes creating the dedicated private repository. Do not make the user work out repository creation themselves if you have tools to do it. If they explicitly want **public-only** setup, skip private repository creation and app installation; neither is required for Public reactions.
+Do not create a separate Raycast category. Raycast is an optional action attached to a specific emoji under **Settings → Raycast emoji actions**. When asked to add one, obtain the command deeplink, attach it to the user's chosen emoji, and verify both the local reaction and the command launch.
 
-Let the user handle passwords, two-factor authentication, and authorization steps that require their interaction. Never ask them to paste credentials or authorization codes into chat. Use only the code generated by their own extension session. No personal access token, new GitHub App, server, or Cloudflare account is needed.
+### Optional private backup
 
-## 1. Install the released extension
+Local storage is the source of truth. A browser profile can be lost, so encourage the user to back up reactions to a dedicated private GitHub repository if they want durable history across machines.
 
-You need a GitHub account and desktop Chrome or Helium that allows unpacked extensions. If the user has no GitHub account, help them open [GitHub signup](https://github.com/signup) and resume after they create one. Git and Node.js are not needed to install a released build.
+Recommended setup:
 
-1. Inspect the chosen browser profile for an existing reacji.to installation. Reuse it if it works; update it if needed. Do not install a duplicate.
-2. Open the [latest official release](https://github.com/reacji-to/reacji-to/releases/latest) and download **`reacji-to.zip`** under Assets. Do not use GitHub's “Source code” ZIP.
-3. Extract it into a permanent folder, such as `~/Applications/reacji-to`. Keep the folder: the browser loads the extension from it. Record its absolute path for the handoff.
-4. Open `chrome://extensions` in Chrome or `helium://extensions` in Helium. If the Helium address does not open, use its Extensions settings or `chrome://extensions`.
-5. Enable **Developer mode**, choose **Load unpacked**, and select the extracted folder containing both `manifest.json` and `background.js`.
-6. Check that reacji.to is enabled with no loading errors. Optionally pin its blue-eyes toolbar icon.
+1. Create or reuse a dedicated private repository such as `USER/reacji-to-backup`. Do not repurpose an unrelated repository.
+2. Connect GitHub in extension settings.
+3. Give the existing reacji.to GitHub App access to only that repository. It needs repository contents read/write and GitHub's required metadata read permission.
+4. Select the repository under **Private backup** and save it.
+5. Add and remove a test reaction, then verify the corresponding private repository updates.
 
-If browser tools cannot use **Load unpacked**, open the extensions page and give the user the exact folder to select. Continue after they load it.
+A backup failure must not remove the local reaction. Fix access and retry with another local change. The backup contains page URLs, target locations, and short visible excerpts, so keep the repository private.
 
-**Verify:** reacji.to appears in the intended profile's extensions list, and its settings open from the toolbar icon or extension Options.
+### Optional emoji actions
 
-The extension uses HTTP/HTTPS site access, Storage to place and redisplay reactions. Its legacy Context Menus permission only removes the old menu during upgrades. Browser settings pages, extension stores, and other browser-protected pages cannot host reactions.
+An emoji can trigger a local Raycast command or a configured Slack action. Configure actions on the specific emoji the user already recognizes; do not turn the service name into a picker category. Test the action from the picker and confirm that the local reaction still saves.
 
-## 2. Connect the user's GitHub account
+Slack support is experimental and is not part of the public extension release yet.
 
-1. Open the extension's settings and click **Connect GitHub**. If it already shows the correct connected account, reuse that connection.
-2. Keep the settings tab open. Use **Copy code** and **Continue to GitHub** to enter the code from this extension session on GitHub.
-3. Check that GitHub is signed into the intended personal account. Complete authorization for the **reacji.to** app; its GitHub app slug is `reacji-to`.
-4. Return to extension settings and wait for the connection to finish.
-5. Leave **Keep connected after restarting the browser** selected unless the user prefers a session-only connection.
+## Using reacji.to
 
-**Verify:** settings say **Connected as @YOUR_HANDLE. Ready for one-click reactions.** Record that handle; it must own the private repository in step 3.
+- Hold **Option** or **Alt** and click page content, or click the eyes icon next to a supported post.
+- Start typing as soon as the picker opens. Search accepts emoji, Unicode names, and personal labels.
+- Choose a different emoji to replace the reaction. Choose the current emoji again to remove it.
+- Click **?** in the picker to open the agent instructions in settings.
 
-This authorization connects the user's identity. Repository access is a separate step below. Public reactions are written by the hosted service to [reacji-to/reacji-to-data](https://github.com/reacji-to/reacji-to-data); public-only users do not need a personal repository or a GitHub App installation on their repositories.
-
-For dev-null, the site's signed-in GitHub account must match the extension account. A dev-null account is not required to react on other websites.
-
-## 3. Create the private repository
-
-**The agent should create this repository when its tools allow.** The extension's **Create a new private repo** button only opens GitHub's creation form; clicking it does not create or connect a repository.
-
-First inspect the current configuration. If the extension already uses a dedicated private repository owned by the connected account, verify and reuse it. Otherwise create one with these values:
-
-| Field | Value |
-| --- | --- |
-| Owner | The personal GitHub account connected in step 2 |
-| Repository name | `reacji-to-private` |
-| Description | `Private reactions from reacji.to` |
-| Visibility | **Private** |
-| Initialize | Add a README |
-
-Use an already authenticated GitHub tool or CLI if available. For example, after checking the CLI account with `gh api user --jq .login`, substitute the handle verified in step 2:
-
-```sh
-# Replace YOUR_HANDLE before running. Check for an existing repo first.
-gh repo view YOUR_HANDLE/reacji-to-private --json nameWithOwner,visibility
-
-# Run only if this repository does not already exist.
-gh repo create YOUR_HANDLE/reacji-to-private \
-  --private \
-  --description 'Private reactions from reacji.to' \
-  --add-readme
-
-# Confirm the result.
-gh repo view YOUR_HANDLE/reacji-to-private --json nameWithOwner,visibility
-```
-
-Do not treat a network or authentication error as proof that the repository does not exist. If the name belongs to an unrelated repository, choose another available name, such as `reacji-to-private-reactions`, and use that name throughout the remaining steps.
-
-If authenticated repository tools are unavailable, use **Create a new private repo** in extension settings or open [GitHub's new-repository form](https://github.com/new). Fill in the values above and finish creation. Check the actual visibility even if the form was prefilled.
-
-**Verify:** GitHub shows the repository under the connected personal account and labels it **Private**. Do not use an organization-owned repository, fork the extension source, or make an existing private repository public.
-
-## 4. Give reacji.to access to that repository and select it
-
-Creating the repo is not enough. Complete both the GitHub App installation and the extension's repository selection.
-
-1. In extension settings, under **Your private reactions**, click **Choose repositories on GitHub**.
-2. Choose the personal account from step 2. Install the existing reacji.to app, or configure its existing installation.
-3. Select **Only select repositories** and add the exact private reactions repository from step 3. Do not select **All repositories** or add the extension or website source repositories. Preserve unrelated existing installation selections.
-4. Explain the permissions before completing the installation: the app needs **Contents: read and write** to store reactions, plus GitHub's required **Metadata: read**. Issues access is not needed. Complete the GitHub authorization flow with the user's participation where required.
-5. Return to extension settings and click **Refresh repositories**.
-6. Choose `YOUR_HANDLE/reacji-to-private` (or the name you actually created) in **Private repository**.
-7. Click **Use this repository**.
-8. Confirm **Mirror my public reactions to this private repo** is checked unless the user opted out. It starts copying on subsequent public saves; selecting a repository does not import historical reactions. Turning it off leaves existing copies in place.
-
-**Verify:** settings say **Using OWNER/REPO. Private reactions are ready.** After reopening settings, the shorter **Using OWNER/REPO.** status is normal. An empty repository list or merely seeing the repo on GitHub does not mean this step is complete.
-
-Private reactions are stored in this repository, not in the public data repository or public profile. They do not contribute to public reaction counts. They are not end-to-end encrypted: GitHub, repository collaborators, and the reacji.to service operator can access them.
-
-## 5. Verify a complete private save
-
-1. Open or reload `https://example.com/` in the browser profile where you installed the extension. Reload other webpages that were already open before installation too.
-2. Hold down **Option** (**Alt** on Windows/Linux) and click ordinary page content.
-3. **Select Private before choosing an emoji.** Connecting a private repository does not make every new picker private; check the selected mode each time.
-4. Search for or paste 🧪 and select it. Wait for the save to finish without an error.
-5. Reload the page. Confirm the private reaction returns at the intended location. If necessary, reopen its picker and select Private.
-6. Inspect the selected private repository using GitHub or an authenticated repository tool. Confirm a new commit records the test URL and emoji. An emoji appearing immediately in the page is not enough: the UI can update before the server saves it.
-7. Reopen the reaction picker in Private mode and select 🧪 again to remove it. Confirm another repository update removes the active reaction and that it stays gone after a reload. The earlier commit remains in Git history.
-
-If setup is public-only, verify that the picker opens. Test a public save only when the user has agreed to its URL and emoji; then verify it after reload and on `https://reacji.to/YOUR_GITHUB_HANDLE` or in the public data repository.
-
-**Verify:** the private reaction survived a reload, its repository commit exists, and cleanup succeeded. If tools cannot verify a step, report exactly what remains unverified rather than calling setup complete.
-
-## 6. Show the user how to use it
-
-Give a short walkthrough using the use cases above:
-
-- **On webpages:** hold down **Option** (**Alt** on Windows/Linux) and click the specific content, choose Public or Private, then choose any emoji.
-- **On dev-null, X, and LinkedIn:** the small eyes picker beside or under a post also opens reactions.
-- **To change or remove a reaction:** reopen its picker in the same visibility mode. Choose another emoji to replace it, or the same emoji to remove it.
-- **To choose whose public reactions appear:** in settings, under **Whose reactions you see**, choose **Everyone** or **People I follow on dev-null**. Use **Refresh following list** after changing follows. This filters what the user sees; it does not limit who can see their Public reactions.
-- **To share a profile:** use `https://reacji.to/YOUR_GITHUB_HANDLE`. Only public reactions appear there.
-- **To automate public reactions too:** keep mirroring enabled in settings and watch `public/data/` in the private repo. Copies contain only your public reactions for each post/page. Private reactions remain in `data/`.
-
-Explain these details before the user starts marking their own pages:
-
-- **Public and Private are separate.** Switching modes does not move or delete a reaction in the other mode. To move one, remove it in the original mode and create it in the other. Previously public data can remain in Git history.
-- **A webpage reaction includes context.** It saves the page URL, DOM location, relative position, and a short excerpt of visible text. Form-field values are not captured, but meaningful URL query parameters can remain. Use Private for context the user does not want to publish.
-- **Page changes can hide markers.** If the saved target no longer matches reliably, the pin can stay hidden rather than attach to the wrong content.
-
-## 7. Offer automations with GitHub Actions
-
-**Agent: after private setup works, offer to write an automation for the user.** Explain that a private reaction can be a command: choose an emoji in the browser, and a GitHub Action processes the resulting commit in their private repository. Automations run on GitHub; the user's computer does not need to stay on after the reaction is saved.
-
-The same automations can consume mirrored public reactions in the separate `public/` folder. Use both path filters below for a combined automation, or only the relevant folder when the user wants one visibility mode. Mirroring is enabled by default once a private repository is connected. Public saves and private copies are separate commits: a copy can fail while the public save succeeds. The extension reports the error; after fixing repository/app access, the next public save on that post/page reconciles its current state, including removals and moves. There is no automatic historical import or background retry. Automations should tolerate delayed copies and missed intermediate states.
-
-Offer a few concrete choices:
-
-| Private reaction | Automation you can build |
-| --- | --- |
-| 🔖 Bookmark this | Maintain `bookmarks.md` in the private repo, with the URL and saved excerpt. Remove an entry when its bookmark reaction is removed. |
-| 📚 Read later | Maintain a reading queue. Replace 📚 with ✅ to move an item to a completed list. |
-| 💡 Save an idea | Collect marked passages and links into an ideas file, grouped by website or topic. |
-| 🔍 Research this | Add a URL and its excerpt to a research queue. Optionally use a separately configured AI service to prepare a summary or questions. |
-| 🛒 Compare this | Maintain a shopping shortlist from marked product URLs. Fetching current prices would need a separate integration. |
-| ⭐ Include in my digest | Maintain a favorites list after each commit; optionally add a scheduled workflow to prepare a weekly digest. Sending it by email or chat requires a destination and an integration. |
-
-For example, ask:
-
-> Want me to build one of these? I can start with Private 🔖 → a bookmark list in your private repo, or 📚 / ✅ → a reading queue. Tell me the emoji and what you want to happen, and I'll write the workflow and script, install them, and test the result.
-
-If the user already requested an automation, proceed with that request. Otherwise, make the offer and finish the base setup; automation is optional. Confirm the chosen behavior, output location, and any external destination before implementing it. A bookmark list kept in the same private repo needs no external service or extra secret.
-
-### Configure the trigger in the private repository
-
-1. Open the **private reactions repository**, not the extension source repo. Inspect an actual reaction commit to confirm its branch, paths, and JSON format.
-2. Check **Settings → Actions → General** to ensure Actions and the required actions are allowed. Check the account's available Actions usage before enabling frequent or AI-powered jobs.
-3. Add `.github/workflows/private-reactions.yml` on the repository's default branch using the user's authenticated GitHub tooling. The reacji.to app does not need permission to edit workflows.
-4. Start with the working trigger check below. Replace `main` with the actual default branch if different. It runs after pushes that change reaction JSON, and it can also be run manually from the Actions tab.
-
-```yaml
-name: Reaction automation
-
-on:
-  push:
-    branches: [main]
-    paths:
-      - 'data/**/*.json'
-      - 'public/data/**/*.json'
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
-jobs:
-  process:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-      - name: Verify reaction data can be read
-        run: |
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-
-          files = sorted(Path("data").rglob("*.json")) + sorted(Path("public/data").rglob("*.json"))
-          for path in files:
-              json.loads(path.read_text(encoding="utf-8"))
-          print(f"Read {len(files)} reaction documents; trigger works.")
-          PY
-```
-
-This starter validates the trigger and JSON access; **it does not create bookmarks yet**. The agent's next task is to write the chosen automation script, for example `scripts/update_bookmarks.py`, and replace the validation step with a call to it. Commit both the script and workflow to the private repository.
-
-Private saves and public mirror copies use a GitHub App installation token, so their commits can trigger `push` workflows. Workflow commits made with GitHub's built-in `GITHUB_TOKEN` normally do not trigger another `push` workflow. Keep the `data/**/*.json` and `public/data/**/*.json` filters so changes to generated lists do not trigger this automation either. See [GitHub's workflow trigger documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
-
-### Write the chosen automation
-
-Read private documents from `data/` and mirrored public documents from `public/data/`. The relative layout and reaction schema are the same; mirrors also include `visibility: "public"`. Only the owner's public reactions are copied, including their placements. Keep both folders read-only for automation scripts; put generated output elsewhere. Include visibility in the reaction key when treating a public and private reaction on the same target as separate actions, or deliberately deduplicate by URL for a combined bookmark list. A file can remain empty after the last reaction is removed.
-
-- **Read the saved data, not the commit message.** Current paths are `data/web/<page-hash>.json`, `data/x/<post-id>.json`, `data/linkedin/<post-id>.json`, and `data/<dev-null-id>.json`. Web reactions are under `placements[placementId].users[githubUserId]`; their excerpts are in `placements[placementId].anchor.quote` and URL in `post.url`. Post reactions use `users[githubUserId]`. A saved user entry includes `emoji`, `login`, `requestId`, and `at`. Verify these fields against the repository before coding.
-- **For bookmarks, rebuild from current state.** Collect the user's active 🔖 reactions into a stable, sorted list. Deduplicate by URL for one bookmark per page, or by platform/post/placement/user for separate marked passages. Removing or changing an emoji must update the list too; do not append every commit forever. For social posts, use the platform's post URL rather than assuming every record has `post.url`. A complete rebuild should produce identical output when rerun on the same input.
-- **Save output deliberately.** To commit `bookmarks.md` in the same repo, give that job `contents: write`, configure Git's bot identity, and authenticate its push with the job's `GITHUB_TOKEN`. The starter disables persisted credentials, so the agent must explicitly configure authenticated writing. Stage only generated output, commit only when it changes, and never rewrite `data/`. Before writing, fetch the latest default branch and regenerate from that state; on a conflicting push, fetch and regenerate again with a bounded retry. This prevents a newer reaction from being overwritten by a slow run.
-- **For external actions, track what has been handled.** Use a durable key based on the reaction's platform/post/placement/user and `requestId`, plus the destination's idempotency support when available. Define what an edit or removal should do. Workflow retries and manual reruns must not repeatedly create the same task or send the same notification. If every intermediate reaction matters, process unhandled commits from a durable checkpoint instead of only scanning the latest state.
-- **Keep private data private.** Store required API keys in repository Actions secrets, not in source or chat. Explain which URLs or excerpts an external service would receive. Avoid printing private reaction data in logs. Parse JSON as data; never execute saved text or insert it into shell commands. Give each job only the permissions it needs. See [GitHub's secure workflow guidance](https://docs.github.com/en/actions/reference/security/secure-use).
-
-### Verify the automation before handing it off
-
-Run it manually once, then make a new private reaction with the chosen emoji on `https://example.com/`. Check the repository's **Actions** tab for a successful run associated with that reaction commit, and inspect the actual output. Change or remove the reaction and confirm the output follows the chosen behavior. Rerun the workflow to check that it does not duplicate entries or side effects. For notifications or external writes, use the destination the user requested and label test messages clearly.
-
-**Verify:** a real private reaction commit triggered the workflow, the intended output appeared, and edits/removals and reruns behaved correctly. Record the workflow path, emoji rules, output link, and any required secrets by name only. A successful trigger check alone is not a completed bookmark automation.
-
-## Completion report
-
-Finish with a brief report containing actual values:
-
-```text
-Browser/profile: …
-Extension version and installed folder: …
-Connected GitHub account: @…
-Private repository: https://github.com/…/… (verified Private)
-App access and extension repository selection: verified / remaining step
-Public mirroring: enabled / opted out / unavailable in installed release
-Private test: saved, survived reload, commit verified, removed / remaining step
-Automation: offered / skipped / workflow, emoji rule, output link, verification
-Public profile: https://reacji.to/… (empty until you add public reactions)
-Next action for you: none / exact action needed
-```
-
-For public-only setup, mark the private steps as skipped by request. Include one or two relevant use cases and remind the user to choose **Private** before marking private content. Never include credentials or authorization codes in the report.
-
-## Updating and troubleshooting
-
-| Situation | What to do |
-| --- | --- |
-| **Update available** or an ↑ toolbar badge | Download `reacji-to.zip` from the latest official release, extract it into the installed folder, click **Reload** on the browser's extensions page, and reload open webpages. Keep the folder path stable. Unpacked extensions do not update themselves. Settings also has **Check for updates**. |
-| **👀 reacji to this** does nothing | Reload the page, check that the extension is enabled and allowed on that site, and try ordinary webpage content. Protected browser pages and some embedded content are restricted. |
-| GitHub connection does not finish | Keep extension settings open, check the intended account on GitHub, and finish the current authorization. If the code expired, start a fresh **Connect GitHub** flow from the extension. |
-| Wrong GitHub account or dev-null mismatch | Check the extension's connected handle and dev-null session. Use **Disconnect**, then **Connect GitHub** with the intended account. X and LinkedIn sign-ins do not change the extension's identity. |
-| Private repository does not appear | Check that creation finished, visibility is Private, the connected personal account owns it, and it is selected in the reacji.to GitHub App installation. Then **Refresh repositories**, select it, and click **Use this repository**. |
-| Private save fails | Recheck the selected repo and app access. A repository made public is rejected. Read the displayed error; do not broaden access to all repositories or create a token as a workaround. |
-| Public save succeeded but its private copy failed | Check the mirroring setting, selected private repository, and app access. The public save remains successful. After correcting access, the next public save on that post/page retries its current state. Untouched pages are not backfilled. |
-| Automation does not run after a private save | Check that the workflow is on the correct branch in the private repo, Actions is enabled, and the new commit changed a path matched by the filter. Check Actions usage limits and workflow errors. Run it manually to distinguish a trigger problem from a script failure. |
-| Service unavailable | Check whether [reacji.to](https://reacji.to/) loads, retry once, and check connection status. If it persists, report the error and extension version without credentials or private page text. |
-| Reactions or follows seem stale | Visible pages normally refresh reaction data within 30 seconds. The following list is cached for five minutes; use **Refresh following list** to update it sooner. |
-
-To disconnect, use **Disconnect** in extension settings. To revoke GitHub authorization or repository access too, review reacji.to under GitHub Settings → Applications. Disconnecting does not delete previously committed reactions.
+Each browser profile keeps its own local reactions and labels. Use a private backup when the user wants recovery or multiple-machine history.

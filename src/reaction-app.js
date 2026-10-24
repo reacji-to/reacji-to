@@ -7,6 +7,7 @@ import { capturePlacement, resolvePlacement } from './anchors.js';
 import { resolveTextSelection } from './text-selection.js';
 import { layoutActions, clearActions } from './action-layout.js';
 import { discoverPosts, platformFor } from './adapters.js';
+import { createPostholeAdapter } from './posthole.js';
 import { postKey } from './posts.js';
 import css from './content.css';
 import { currentDevNullUser } from './identity.js';
@@ -17,6 +18,7 @@ import { emojiValue, summarize, COMMIT_ID, reactionEmojis, updateReactionUser } 
 const reactionRow = false;
 import { frequentEmojis } from './emoji-frequency.js';
 import { destinations as defaultDestinations } from './destinations.js';
+import { emojiSearchResults } from './emoji-aliases.js';
 
 // One stroke-icon vocabulary for the compact category strip.
 const emojiCategories = [
@@ -56,18 +58,19 @@ function resolveLinkedIn(urn, article) {
   return null;
 }
 const siteIdentity = () => platform === 'devnull' ? currentDevNullUser() : Promise.resolve({});
-let actor = null;
+let actor = { id: 0, login: 'you' };
 let active = null;
-let pickerGeneration = 0, lastVisibility = 'public';
+const posthole = createPostholeAdapter({ changed: scheduleScan, locked: () => Boolean(active) });
+let pickerGeneration = 0, lastVisibility = 'local';
 let pageIdentity = null, pageLoading = false, pageGeneration = 0, pageHref = location.href;
 let pageDocuments = {}, privateGeneration = 0;
-let connectionState = {}, catalogs = {};
+let connectionState = {}, catalogs = {}, emojiAliases = [];
 const dataField = id => destinations.dataField(id);
 const readType = id => destinations.readType(id);
 const customEmojis = () => destinations.entries.flatMap(item => (catalogs[item.id] || []).filter(emoji => item.emojiName?.(emoji.emoji)));
 const emojiName = value => destinations.entries.map(item => item.emojiName?.(value)).find(Boolean) || emojis.find(item => item.emoji === value)?.name || value;
 const integrationContext = () => ({ state: connectionState, catalogs, unicode: emojis, emojiName });
-const routedScope = (scope, emoji) => destinations.resolve(scope || 'public', emoji, integrationContext());
+const routedScope = (scope, emoji) => destinations.resolve(scope || 'local', emoji, integrationContext());
 async function loadCatalogs(state) {
   connectionState = state;
   await Promise.all(destinations.entries.filter(item => item.catalogMessage && item.loadWhen?.(state)).map(async item => {
@@ -81,8 +84,8 @@ const optimistic = new Map();
 const movingRecords = new Set();
 let saveQueue = Promise.resolve(), dataRevision = 0;
 const mutationKey = (record, visibility) => `${record.mutationId || record.id}:${visibility}`;
-const usersFor = (record, scope = record.visibility || 'public') => {
-  scope = scope === true ? 'private' : scope === false ? 'public' : scope;
+const usersFor = (record, scope = record.visibility || 'local') => {
+  scope = scope === true ? 'private' : scope === false ? 'local' : scope;
   const users = { ...placementUsers(record[dataField(scope)], record.placement) };
   for (const moving of movingRecords) {
     const move = moving.moves?.[scope];
@@ -169,13 +172,13 @@ function display(record) {
   if (active?.record === record) active.updateRemoval?.();
   const focused = record.rowEl?.shadowRoot.activeElement || record.el.shadowRoot.activeElement;
   const focusedLabel = focused?.classList.contains('chip') ? focused.getAttribute('aria-label') : null;
-  record.el.dataset.visibility = record.visibility || 'public';
-  if (record.rowEl) record.rowEl.dataset.visibility = record.visibility || 'public';
+  record.el.dataset.visibility = record.visibility || 'local';
+  if (record.rowEl) record.rowEl.dataset.visibility = record.visibility || 'local';
   record.chips.replaceChildren();
   record.slot?.querySelectorAll('.chip').forEach(chip => chip.remove());
   for (const group of summarize({ users: usersFor(record) }, actor?.id)) {
     const button = element('button', { type: 'button', class: 'chip', 'aria-pressed': String(group.mine),
-      'aria-label': `${record.visibility !== 'public' ? destinations.get(record.visibility).label + ': ' : ''}${destinations.entries.map(item => item.emojiName?.(group.emoji)).find(Boolean) || group.emoji}, ${group.count} reaction${group.count === 1 ? '' : 's'}${group.mine ? ', yours' : ''}. ${record.placement ? 'Change reaction' : group.mine ? 'Remove reaction' : 'React with this emoji'}`,
+      'aria-label': `${record.visibility !== 'local' ? destinations.get(record.visibility).label + ': ' : ''}${destinations.entries.map(item => item.emojiName?.(group.emoji)).find(Boolean) || group.emoji}, ${group.count} reaction${group.count === 1 ? '' : 's'}${group.mine ? ', yours' : ''}. ${record.placement ? 'Change reaction' : group.mine ? 'Remove reaction' : 'React with this emoji'}`,
       title: `${group.people.slice(0, 12).map(name => `@${name}`).join(', ')}${group.people.length > 12 ? '…' : ''}` });
     paintEmoji(button, group.emoji);
     if (!record.placement && reactionRow) button.append(element('span', { class: 'reaction-count', 'aria-hidden': 'true' }, String(group.count)));
@@ -196,14 +199,14 @@ function display(record) {
   }
   if (focusedLabel) [...(record.rowEl || record.el).shadowRoot.querySelectorAll('.chip')].find(button => button.getAttribute('aria-label') === focusedLabel)?.focus({ preventScroll: true });
   record.button.title = 'reacji.to';
-  record.el.setAttribute('aria-busy', String(optimistic.has(mutationKey(record, record.visibility || 'public'))));
+  record.el.setAttribute('aria-busy', String(optimistic.has(mutationKey(record, record.visibility || 'local'))));
   record.button.hidden = Boolean(record.slot?.querySelector('.chip'));
   if (record.rowEl) {
     record.rowEl.hidden = !record.chips.childElementCount;
     record.rowEl.setAttribute('aria-busy', record.el.getAttribute('aria-busy'));
     positionReactionRow(record);
   }
-  if (!record.placement) layoutActions(record.anchor, record.el, record.article);
+  if (!record.placement && !record.customLayout) layoutActions(record.anchor, record.el, record.article);
   if (record.placement) {
     record.button.hidden = record.chips.childElementCount > 0;
     const present = destinations.entries.map(item => item.id).some(scope => Object.values(usersFor(record, scope)).some(u => u.emoji));
@@ -217,9 +220,9 @@ async function refresh(record) {
   record.loading.add(visibility);
   const generation = privateGeneration, revision = dataRevision;
   try {
-    const identity = destinations.get(visibility).requiresIdentity && visibility !== 'public' ? await siteIdentity() : {};
-    const data = await send({ type: readType(visibility), post: record.post, ...identity });
-    if ((visibility !== 'public' && (document.hidden || generation !== privateGeneration)) || record.visibility !== visibility || revision !== dataRevision || optimistic.size) return;
+    const identity = destinations.get(visibility).requiresIdentity ? await siteIdentity() : {};
+    const data = await send({ type: readType(visibility), post: record.post, ...(record.archive ? { archive: record.archive } : {}), ...identity });
+    if (document.hidden || generation !== privateGeneration || record.visibility !== visibility || revision !== dataRevision || optimistic.size) return;
     record[dataField(visibility)] = data;
     if (record.placement && pageIdentity?.id === record.post.id) {
       pageDocuments[visibility] = data;
@@ -231,9 +234,9 @@ async function refresh(record) {
 }
 function choose(record, emoji, placement = record.placement, { trackUsage = true, rememberScope = true, screenshotId, operation } = {}) {
   const generation = privateGeneration;
-  const requestedVisibility = record.visibility || 'public';
+  const requestedVisibility = record.visibility || 'local';
   if (emoji !== null && operation !== 'remove' && !record.moves?.[record.visibility]) record.visibility = routedScope(record.visibility, emoji);
-  const visibility = record.visibility || 'public';
+  const visibility = record.visibility || 'local';
   const context = { ...(destinations.get(visibility).capturesContext ? captureContext(record) : { title: document.title.slice(0, 200), quote: record.placement?.selection?.exact || '' }), url: location.href };
   const rememberMode = rememberScope && visibility === requestedVisibility;
   if (rememberMode) rememberVisibility(visibility);
@@ -261,12 +264,12 @@ function choose(record, emoji, placement = record.placement, { trackUsage = true
       const identity = destinations.get(visibility).requiresIdentity ? await siteIdentity() : {};
       const target = emoji === null && move ? move.committed : placement;
       const moveFrom = move && emoji !== null && move.committed.id !== target.id ? move.committed.id : null;
-      const result = await send({ type: 'react', event: { version: 1, commit: record.post.id, post: record.post, ...(operation ? { operation } : {}), ...(target ? { placement: target } : {}), ...(moveFrom ? { moveFrom } : {}), emoji }, visibility, context, trackUsage, screenshotId, ...identity });
+      const result = await send({ type: 'react', event: { version: 1, commit: record.post.id, post: record.post, ...(operation ? { operation } : {}), ...(target ? { placement: target } : {}), ...(moveFrom ? { moveFrom } : {}), emoji }, visibility, context, trackUsage, screenshotId, ...(record.archive ? { archive: record.archive } : {}), ...identity });
       if (move) move.committed = target;
-      actor = result.actor || actor;
+      if (Number.isSafeInteger(result.actor?.id) && typeof result.actor.login === 'string') actor = result.actor;
       let savedDocument = result.document;
-      if (!savedDocument) savedDocument = await send({ type: readType(visibility), post: record.post, ...identity });
-      const resultDocument = visibility !== 'public' && (document.hidden || generation !== privateGeneration) ? null : savedDocument;
+      if (!savedDocument) savedDocument = await send({ type: readType(visibility), post: record.post, ...(record.archive ? { archive: record.archive } : {}), ...identity });
+      const resultDocument = document.hidden || generation !== privateGeneration ? null : savedDocument;
       if (record.placement && pageIdentity?.id === record.post.id) {
         pageDocuments[visibility] = resultDocument;
       }
@@ -304,6 +307,7 @@ function closePicker() {
   record.button.setAttribute('aria-expanded', 'false');
   record.addButton?.setAttribute('aria-expanded', 'false');
   if (record.placement) { record.pending = false; display(record); }
+  scheduleScan();
   if (record.el.isConnected && !record.el.hidden) (anchor?.getClientRects().length ? anchor : record.button.hidden ? record.chips.querySelector('button') : record.button)?.focus({ preventScroll: true });
 }
 function positionPicker() {
@@ -317,6 +321,8 @@ function positionPicker() {
   panel.style.top = `${Math.max(12, Math.min(below + height <= innerHeight - 12 ? below : box.top - height - 6, innerHeight - height - 12))}px`;
 }
 async function openPicker(record, preserveVisibility = false, { focus = true, anchor = record.button } = {}) {
+  const overlayParent = record.article?.closest('dialog[open]') || document.body;
+  if (overlay.el.parentElement !== overlayParent) overlayParent.append(overlay.el);
   if (active?.record === record) return closePicker();
   closePicker();
   const generation = pickerGeneration;
@@ -347,11 +353,12 @@ async function openPicker(record, preserveVisibility = false, { focus = true, an
   controls.append(search);
   const grid = element('div', { class: 'grid', 'aria-label': 'Emoji choices' });
   const status = element('p', { class: 'status', role: 'status', 'aria-live': 'polite' }, record.error || '');
-  const settings = element('button', { class: 'link', type: 'button' }, 'Settings');
+  const settings = element('button', { class: 'help-button', type: 'button', 'aria-label': 'Help and settings · paste instructions to your agent', title: 'Help · paste instructions to your agent' }, '?');
   settings.addEventListener('click', event => { if (event.isTrusted) send({ type: 'options' }).catch(error => { status.textContent = error.message; }); });
   head.append(title, identity, settings);
-  const visibility = element('div', { class: 'visibility', role: 'group', 'aria-label': 'Reaction visibility' });
-  const destinationButtons = destinations.entries.map(item => element('button', { type: 'button', 'aria-pressed': String(record.visibility === item.id) }, item.label));
+  const selectableDestinations = destinations.entries.filter(item => item.selectable);
+  const visibility = element('div', { class: 'visibility', role: 'group', 'aria-label': 'Reaction storage' });
+  const destinationButtons = selectableDestinations.map(item => element('button', { type: 'button', 'aria-pressed': String(record.visibility === item.id) }, item.label));
   const destination = element('p', { class: 'destination help' });
   const removal = element('div', { class: 'current-reaction', hidden: '' });
   const currentEmoji = element('span', { class: 'current-emoji', 'aria-hidden': 'true' });
@@ -364,7 +371,7 @@ async function openPicker(record, preserveVisibility = false, { focus = true, an
     for (const button of panel.querySelectorAll('.emoji[data-emoji]')) {
       button.setAttribute('aria-pressed', String(reactionEmojis(usersFor(record, routedScope(record.visibility, button.dataset.emoji))[actor?.id]).includes(button.dataset.emoji)));
     }
-    currentLabel.textContent = usersFor(record)[actor?.id]?.pending ? 'Unconfirmed reaction' : record.visibility === 'public' ? 'Your reaction' : `Your ${destinations.get(record.visibility).label.toLowerCase()} reaction`;
+    currentLabel.textContent = usersFor(record)[actor?.id]?.pending ? 'Unconfirmed reaction' : record.visibility === 'local' ? 'Your reaction' : `Your ${destinations.get(record.visibility).label.toLowerCase()} reaction`;
     positionPicker();
   };
   removeButton.addEventListener('click', event => {
@@ -373,7 +380,7 @@ async function openPicker(record, preserveVisibility = false, { focus = true, an
   removal.append(currentEmoji, currentLabel, removeButton);
   let pickerActions;
   const updateScope = () => {
-    destinationButtons.forEach((button, index) => button.setAttribute('aria-pressed', String(record.visibility === destinations.entries[index].id)));
+    destinationButtons.forEach((button, index) => button.setAttribute('aria-pressed', String(record.visibility === selectableDestinations[index].id)));
     destination.textContent = destinations.get(record.visibility).description || '';
     destination.hidden = !destination.textContent;
     categories.hidden = destinations.get(record.visibility).catalogOnly;
@@ -386,8 +393,9 @@ async function openPicker(record, preserveVisibility = false, { focus = true, an
     await refresh(record);
     if (active?.record === record) { status.textContent = record.error || ''; updateScope(); }
   };
-  destinationButtons.forEach((button, index) => button.addEventListener('click', event => { if (event.isTrusted) switchScope(destinations.entries[index].id); }));
+  destinationButtons.forEach((button, index) => button.addEventListener('click', event => { if (event.isTrusted) switchScope(selectableDestinations[index].id); }));
   visibility.append(...destinationButtons);
+  visibility.hidden = destinationButtons.length <= 1;
   updateScope();
   const selectedText = element('blockquote', { class: 'selected-text' }, record.placement?.selection?.exact || '');
   selectedText.hidden = !selectedText.textContent;
@@ -408,32 +416,37 @@ async function openPicker(record, preserveVisibility = false, { focus = true, an
     button.setAttribute('aria-pressed', String(at === index));
     button.tabIndex = at === index ? 0 : -1;
   });
+  const emojiChoices = new WeakMap();
+  const activateEmoji = async item => {
+    if (panel.dataset.capturing) return;
+    const scope = routedScope(record.visibility, item.emoji);
+    const mine = reactionEmojis(usersFor(record, scope)[actor?.id]).includes(item.emoji);
+    const rememberScope = scope === record.visibility;
+    let screenshotId;
+    if (screenshot.checked && !mine) {
+      panel.dataset.capturing = 'true';
+      const hiding = new CSSStyleSheet();
+      hiding.replaceSync('reacji-to-reactions{visibility:hidden!important}');
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, hiding];
+      try {
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        screenshotId = (await send({ type: 'screenshot-prepare', destination: scope })).id;
+      } catch (error) { status.textContent = error.message; return; }
+      finally { document.adoptedStyleSheets = document.adoptedStyleSheets.filter(sheet => sheet !== hiding); delete panel.dataset.capturing; }
+      if (active?.panel !== panel) return;
+    }
+    record.visibility = scope;
+    choose(record, record.placement && mine ? null : item.emoji, record.placement, { rememberScope, screenshotId, ...(!record.placement ? { operation: mine ? 'remove' : reactionRow ? 'add' : undefined } : {}) });
+  };
   const makeEmoji = item => {
     const selected = reactionEmojis(usersFor(record, routedScope(record.visibility, item.emoji))[actor?.id]).includes(item.emoji);
-    const button = element('button', { class: 'emoji', type: 'button', 'aria-label': item.name, title: item.name, 'data-emoji': item.emoji, 'aria-pressed': String(selected) });
+    const label = item.alias ? `${item.alias} — ${item.name}` : item.name;
+    const button = element('button', { class: item.alias ? 'emoji emoji-alias' : 'emoji', type: 'button', 'aria-label': label, title: label, 'data-emoji': item.emoji, 'aria-pressed': String(selected) });
     paintEmoji(button, item.emoji);
+    if (item.alias) button.append(element('span', { class: 'emoji-alias-label' }, item.alias));
     pickerActions?.decorate(button, item);
-    button.addEventListener('click', async event => {
-      if (!event.isTrusted || panel.dataset.capturing) return;
-      const scope = routedScope(record.visibility, item.emoji);
-      const mine = reactionEmojis(usersFor(record, scope)[actor?.id]).includes(item.emoji);
-      const rememberScope = scope === record.visibility;
-      let screenshotId;
-      if (screenshot.checked && !mine) {
-        panel.dataset.capturing = 'true';
-        const hiding = new CSSStyleSheet();
-        hiding.replaceSync('reacji-to-reactions{visibility:hidden!important}');
-        document.adoptedStyleSheets = [...document.adoptedStyleSheets, hiding];
-        try {
-          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-          screenshotId = (await send({ type: 'screenshot-prepare', destination: scope })).id;
-        } catch (error) { status.textContent = error.message; return; }
-        finally { document.adoptedStyleSheets = document.adoptedStyleSheets.filter(sheet => sheet !== hiding); delete panel.dataset.capturing; }
-        if (active?.panel !== panel) return;
-      }
-      record.visibility = scope;
-      choose(record, record.placement && mine ? null : item.emoji, record.placement, { rememberScope, screenshotId, ...(!record.placement ? { operation: mine ? 'remove' : reactionRow ? 'add' : undefined } : {}) });
-    });
+    emojiChoices.set(button, () => activateEmoji(item));
+    button.addEventListener('click', event => { if (event.isTrusted) emojiChoices.get(button)?.(); });
     return button;
   };
   const draw = () => {
@@ -459,11 +472,12 @@ async function openPicker(record, preserveVisibility = false, { focus = true, an
 
       setCategory(0);
     } else {
-      const results = [...emojis, ...customEmojis()].filter(item => pasted ? item.emoji === pasted : `${item.name} ${item.group}`.toLowerCase().includes(query));
+      const items = [...new Map([...emojis, ...customEmojis()].map(item => [item.emoji, item])).values()];
+      const results = pasted ? items.filter(item => item.emoji === pasted) : emojiSearchResults(items, emojiAliases, query);
       setCategory(-1);
       categoryButtons[0].tabIndex = 0;
       addSection('Search results', results.slice(0, limit));
-      if (!results.length) grid.append(element('div', { class: 'empty' }, 'No emoji found. Try “heart”, “flag”, or paste an emoji.'));
+      if (!results.length) grid.append(element('div', { class: 'empty' }, 'No emoji found. Try a saved name, “heart”, or paste an emoji.'));
       if (results.length > limit) {
         const more = element('button', { class: 'more', type: 'button' }, `Show more · ${results.length - limit} remaining`);
         more.addEventListener('click', () => { const previous = limit; limit += 96; draw(); grid.querySelectorAll('.emoji')[previous]?.focus(); });
@@ -500,6 +514,17 @@ async function openPicker(record, preserveVisibility = false, { focus = true, an
     setCategory(index);
   });
   search.addEventListener('input', () => { limit = 96; grid.scrollTop = 0; draw(); });
+  search.addEventListener('keydown', event => {
+    const first = grid.querySelector('.emoji');
+    if ((event.key === 'Enter' || event.key === 'ArrowDown') && first) {
+      event.preventDefault();
+      if (event.key === 'Enter') emojiChoices.get(first)?.(); else first.focus();
+    }
+  });
+  void send({ type: 'emoji-alias-list' }).then(result => {
+    emojiAliases = result.aliases || [];
+    if (active?.panel === panel && search.value) draw();
+  }).catch(() => { /* Custom names are optional. */ });
   void send({ type: 'emoji-usage-get' }).then(result => {
     usage = result.usage || [];
     if (active?.panel === panel && !search.value && grid.scrollTop === 0 && !grid.contains(overlay.shadow.activeElement)) draw();
@@ -525,10 +550,9 @@ async function openPicker(record, preserveVisibility = false, { focus = true, an
   void refresh(record);
   try {
     const state = await send({ type: 'status' });
-    actor = state.actor || { id: 0, login: 'you' };
-    identity.textContent = actor?.login ? `@${actor.login}` : '';
+    identity.textContent = '@you';
     identity.title = identity.textContent;
-    if (active?.panel === panel) status.textContent = state.followingError || (state.connected || !destinations.get(record.visibility).requiresIdentity ? '' : state.authError || 'Connect GitHub in settings before reacting.');
+    if (active?.panel === panel) status.textContent = state.connected || !destinations.get(record.visibility).requiresIdentity ? '' : state.authError || 'Connect GitHub in settings before using this emoji action.';
     updateScope();
     for (const r of records.values()) display(r);
     await loadCatalogs(state);
@@ -543,21 +567,22 @@ const observer = new IntersectionObserver(entries => {
 }, { rootMargin: '100px' });
 function scan() {
   if (!overlay.el.isConnected) document.body.append(overlay.el);
-  const posts = discover(document, platform, resolveLinkedIn);
+  const posts = posthole.discover(document) ?? discover(document, platform, resolveLinkedIn);
   for (const [el, record] of records) {
     if (record.placement) continue;
     const current = posts.find(p => p.anchor === record.anchor && postKey(p.post) === record.id);
-    if (!el.isConnected || !current) { clearActions(record.anchor); observer.unobserve(el); records.delete(el); el.remove(); record.rowEl?.remove(); if (active?.record === record) closePicker(); }
+    if (!el.isConnected || !current) { if (!record.customLayout) clearActions(record.anchor); observer.unobserve(el); records.delete(el); el.remove(); record.rowEl?.remove(); if (active?.record === record) closePicker(); }
   }
-  for (const { article, anchor, post, inline } of posts) {
-    if ([...records.values()].some(r => r.anchor === anchor)) continue;
-    addRecord({ article, anchor, post, inline });
+  for (const descriptor of posts) {
+    const existing = [...records.values()].find(r => r.anchor === descriptor.anchor);
+    if (existing) { existing.article = descriptor.article; existing.archive = descriptor.archive; continue; }
+    addRecord(descriptor);
   }
   positionPins();
   positionActions();
 }
 function positionActions() {
-  for (const record of records.values()) if (!record.placement) { positionReactionRow(record); layoutActions(record.anchor, record.el, record.article); }
+  for (const record of records.values()) if (!record.placement) { positionReactionRow(record); if (!record.customLayout) layoutActions(record.anchor, record.el, record.article); }
 }
 function positionReactionRow(record) {
   if (!record.rowEl) return;
@@ -565,8 +590,9 @@ function positionReactionRow(record) {
   const after = actionRow === record.article ? record.el : actionRow;
   if (after?.isConnected && after.nextElementSibling !== record.rowEl) after.after(record.rowEl);
 }
-function addRecord({ article, anchor, post, inline, placement, pending = false }) {
+function addRecord({ article, anchor, post, inline, placement, archive, customLayout = false, pending = false }) {
     const { el, shadow } = host();
+    if (customLayout) el.style.setProperty('--rx-native-size', '20px');
     if (!inline) { el.style.display = 'block'; el.style.padding = '4px 0 8px'; }
     const bar = element('span', { class: 'bar' });
     const button = element('button', { class: 'trigger', type: 'button', title: 'reacji.to', 'aria-label': 'React with an emoji', 'aria-haspopup': 'dialog', 'aria-expanded': 'false' });
@@ -591,7 +617,7 @@ function addRecord({ article, anchor, post, inline, placement, pending = false }
     }
     if (placement) { document.documentElement.append(el); el.style.cssText = 'position:absolute;z-index:2147483000;'; bar.classList.add('pin'); }
     else anchor.after(el);
-    const record = { id: postKey(post) + (placement ? `:${placement.id}` : ''), post, article, anchor, el, button, chips, slot, rowEl, addButton, placement, pending, ...Object.fromEntries(destinations.entries.map(item => [dataField(item.id), null])), visibility: lastVisibility, visible: false };
+    const record = { id: postKey(post) + (placement ? `:${placement.id}` : ''), post, article, anchor, archive, customLayout, el, button, chips, slot, rowEl, addButton, placement, pending, ...Object.fromEntries(destinations.entries.map(item => [dataField(item.id), null])), visibility: lastVisibility, visible: false };
     if (rowEl) positionReactionRow(record);
     if (placement) { record.mutationId = crypto.randomUUID(); wirePinDrag(record, bar); }
     records.set(el, record);
@@ -603,7 +629,7 @@ function addRecord({ article, anchor, post, inline, placement, pending = false }
 }
 
 function movePin(record, placement) {
-  const visibility = record.visibility || 'public';
+  const visibility = record.visibility || 'local';
   const emoji = usersFor(record)[actor?.id]?.emoji;
   if (!emoji) return;
   record.moves ||= {};
@@ -725,13 +751,12 @@ async function loadPage() {
     const post = await pagePost(location.href);
     const state = await send({ type: 'status' });
     const preference = await send({ type: 'visibility-get' });
-    const selected = destinations.has(preference.visibility) ? preference.visibility : 'public';
-    const entries = destinations.get(selected).kind === 'integration' ? [destinations.get(selected)] : destinations.entries;
-    actor = state.actor || { id: 0, login: 'you' };
+    const selected = destinations.has(preference.visibility) && destinations.get(preference.visibility).selectable ? preference.visibility : 'local';
+    const entries = destinations.get(selected).kind === 'integration' ? [destinations.get(selected)] : destinations.entries.filter(entry => entry.readable);
     const loaded = {};
     await Promise.all(entries.filter(entry => entry.loadWhen?.(state)).map(async entry => {
       try {
-        loaded[entry.id] = await send({ type: readType(entry.id), post, ...(entry.requiresIdentity && entry.id !== 'public' ? await siteIdentity() : {}) });
+        loaded[entry.id] = await send({ type: readType(entry.id), post, ...(entry.requiresIdentity ? await siteIdentity() : {}) });
         if (generation !== pageGeneration || document.hidden || revision !== dataRevision || optimistic.size) return;
         pageIdentity = post; pageDocuments = { ...loaded }; reconcilePins();
       } catch { /* A failed destination read never falls back to another store. */ }
@@ -775,15 +800,15 @@ function scheduleScan() {
 new MutationObserver(mutations => {
   if (mutations.every(mutation => mutation.target.closest?.('reacji-to-reactions'))) return;
   scheduleScan();
-}).observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['href', 'data-urn', 'data-id', 'data-commit', 'componentkey', 'class', 'style'] });
+}).observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['href', 'data-urn', 'data-id', 'data-commit', 'componentkey', 'class', 'style', 'data-key', 'data-read-key', 'data-view', 'hidden', 'open', 'aria-current'] });
 new MutationObserver(() => { theme(overlay.el); for (const record of records.values()) { theme(record.el); if (record.rowEl) theme(record.rowEl); } }).observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
 addEventListener('resize', () => { positionPins(); positionActions(); positionPicker(); });
-addEventListener('scroll', () => { positionPins(); positionPicker(); if (platform === 'linkedin') scheduleScan(); }, { passive: true, capture: true });
+addEventListener('scroll', event => { posthole.scrolled(event); positionPins(); positionPicker(); if (platform === 'linkedin') scheduleScan(); }, { passive: true, capture: true });
 setInterval(() => { pageChanged(); if (!document.hidden) { loadPage(); for (const record of records.values()) if (record.visible && !record.placement) refresh(record); } }, 30000);
 addEventListener('popstate',pageChanged); addEventListener('hashchange',pageChanged);
-document.addEventListener('visibilitychange', () => { if (document.hidden) { privateGeneration++; closePicker(); for (const item of destinations.entries.filter(item => item.id !== 'public')) { delete pageDocuments[item.id]; for (const record of records.values()) record[dataField(item.id)] = null; } for (const record of records.values()) display(record); } else { loadPage(); for (const record of records.values()) if (record.visible && !record.placement) refresh(record); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { privateGeneration++; closePicker(); for (const item of destinations.entries.filter(item => item.readable)) { delete pageDocuments[item.id]; for (const record of records.values()) record[dataField(item.id)] = null; } for (const record of records.values()) display(record); } else { loadPage(); for (const record of records.values()) if (record.visible && !record.placement) refresh(record); } });
 send({ type: 'status' }).then(async state => {
-  actor = state.actor || { id: 0, login: 'you' }; await loadCatalogs(state);
+  await loadCatalogs(state);
   const preference = await send({ type: 'visibility-get' });
   if (destinations.has(preference.visibility)) lastVisibility = preference.visibility;
   for (const record of records.values()) { if (!record.placement && !active) { record.visibility = lastVisibility; void refresh(record); } display(record); }

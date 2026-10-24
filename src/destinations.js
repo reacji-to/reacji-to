@@ -14,13 +14,17 @@ const slackAction = (emoji, context) => {
 // Provider-specific contracts live here. Adding an integration means registering
 // a descriptor and its runtime adapter, not editing the shared picker/controller.
 export const destinations = createDestinationRegistry([
-  { id: 'public', label: 'Public', kind: 'storage', dataField: 'data', readType: 'read', capturesContext: false, catalogOnly: false,
-    requiresIdentity: true, loadWhen: () => true, description: 'Saved publicly in GitHub.' },
-  { id: 'private', label: 'Private', remoteRead: '/v1/private/read', kind: 'storage', readType: 'private-read', capturesContext: false, catalogOnly: false,
-    requiresIdentity: true, loadWhen: state => state.connected && state.privateRepository, description: 'Saved in your private GitHub repository.' },
-  { id: 'slack', label: 'Slack', remoteRead: '/v1/slack/read', opaqueRead: true, requiresIdentity: true, catalogMessage: 'slack-emojis', catalogKey: 'emojis',
+  { id: 'local', label: 'Local', kind: 'storage', dataField: 'localData', readType: 'local-read', capturesContext: true, catalogOnly: false,
+    requiresIdentity: false, loadWhen: () => true, description: '' },
+  // Private GitHub storage is an optional backup target. It is deliberately not
+  // exposed as a picker mode: local storage remains authoritative and usable
+  // without an account or network connection.
+  { id: 'private', label: 'Private backup', remoteRead: '/v1/private/read', kind: 'storage', readType: 'private-read', capturesContext: true,
+    requiresIdentity: true, selectable: false, readable: false, loadWhen: () => false, description: 'Backed up to your private GitHub repository.' },
+  { id: 'slack', label: 'Slack', remoteRead: '/v1/slack/read', opaqueRead: true, requiresIdentity: true, selectable: false,
+    catalogMessage: 'slack-emojis', catalogKey: 'emojis',
     loadWhen: state => state.connected && state.slack?.connected,
-    matches: (emoji, context) => reactionRoute(context.state.slack?.settings, emoji, 'public').destination === 'slack',
+    matches: (emoji, context) => reactionRoute(context.state.slack?.settings, emoji, 'local').destination === 'slack',
     describe: slackAction,
     catalog: context => {
       if (!context.state.slack?.connected) return [];
@@ -31,7 +35,7 @@ export const destinations = createDestinationRegistry([
     emojiName: value => slackName(value) ? `:${slackName(value)}:` : null,
     imageOrigins: ['https://emoji.slack-edge.com', 'https://a.slack-edge.com'],
     description: 'Posts to your authorized Slack channel. Clearing a marker leaves the Slack message in place.' },
-  { id: 'raycast', label: 'Raycast', requiresIdentity: false, local: true, afterSave: true,
+  { id: 'raycast', label: 'Raycast', requiresIdentity: false, local: true, afterSave: true, selectable: false, readable: false,
     catalogMessage: 'raycast-catalog', catalogKey: 'actions', loadWhen: () => true,
     catalog: context => context.catalogs.raycast || [],
     describe: (emoji, context) => (context.catalogs.raycast || []).find(item => item.emoji === emoji) || null,

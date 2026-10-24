@@ -1,6 +1,6 @@
 // The picker and runtime dispatch depend on capabilities, never provider names.
 export function createDestinationRegistry(definitions) {
-  const entries = definitions.map(item => Object.freeze({ kind: 'integration', capturesContext: true, catalogOnly: true, ...item }));
+  const entries = definitions.map(item => Object.freeze({ kind: 'integration', capturesContext: true, catalogOnly: true, selectable: true, readable: true, ...item }));
   const byId = new Map();
   for (const entry of entries) {
     if (!/^[a-z][a-z0-9-]*$/.test(entry.id) || !entry.label || byId.has(entry.id)) throw new Error('Invalid or duplicate destination.');

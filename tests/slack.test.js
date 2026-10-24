@@ -12,7 +12,7 @@ test('emoji rules override GitHub; Slack selection/custom emojis never fall back
   assert.deepEqual(reactionRoute(settings, '🔥', 'private'), { destination: 'slack', channel: 'CRULE' });
   assert.deepEqual(reactionRoute(settings, '👀', 'slack'), { destination: 'slack', channel: 'CDEFAULT' });
   assert.deepEqual(reactionRoute(null, 'slack:T123:foo', 'public'), { destination: 'slack', channel: '' });
-  assert.deepEqual(reactionRoute(settings, '👀', 'public'), { destination: 'github' });
+  assert.deepEqual(reactionRoute(settings, '👀', 'local'), { destination: 'local' });
 });
 test('personal Worker endpoints require HTTPS except loopback and forbid credentials or path tricks', () => {
   assert.equal(serviceOrigin('https://my-worker.workers.dev/'), 'https://my-worker.workers.dev');

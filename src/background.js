@@ -9,6 +9,7 @@ import { canonicalUrl, verifyPagePost } from './web.js';
 import { loadFollowing, filterReactions } from './following.js';
 import { createUpdateChecker } from './updates.js';
 import { senderPage } from './sender.js';
+import { archiveTarget } from './archive-target.js';
 import { normalizeUsage, recordEmojiUse } from './emoji-frequency.js';
 import { serviceOrigin } from './slack.js';
 import { createRaycastActions } from './raycast.js';
@@ -16,6 +17,7 @@ import { destinations } from './destinations.js';
 import { createDestinationDispatcher } from './destination-registry.js';
 import { createLocalDestination } from './local-destination.js';
 import { reactionPayload } from './reaction-payload.js';
+import { validateEmojiAliases } from './emoji-aliases.js';
 
 // Tokens are never exposed through chrome.storage to content scripts.
 const ready = Promise.all([
@@ -126,19 +128,45 @@ async function readCommit(value) {
   reads.set(id, promise);
   return promise;
 }
-const localRaycast = createLocalDestination({ id: 'raycast', storage: chrome.storage.session,
-  validate: emoji => raycast.validate(emoji), execute: (emoji, payload) => raycast.run(emoji, payload),
-  actor: async () => (await auth.status()).actor || { id: 0, login: 'you' },
+const localReactions = createLocalDestination({ id: 'local', storage: chrome.storage.local,
+  validate: async () => {}, execute: async () => {}, actor: async () => ({ id: 0, login: 'you' }),
 });
+async function rememberEmoji(event, trackUsage) {
+  if (!event.emoji || event.operation === 'remove' || event.moveFrom || trackUsage === false) return;
+  try {
+    const { emojiUsage } = await chrome.storage.local.get('emojiUsage');
+    await chrome.storage.local.set({ emojiUsage: recordEmojiUse(emojiUsage, event.emoji) });
+  } catch { /* Local reactions remain usable when preference storage is unavailable. */ }
+}
+async function backUpLocalReaction(context) {
+  const state = await auth.status();
+  if (!state.actor) return null;
+  const { privateRepositories = {} } = await chrome.storage.local.get('privateRepositories');
+  if (!privateRepositories[state.actor.id]) return null;
+  try {
+    await remoteDestination('private', 'react', { ...context, backup: true,
+      message: { ...context.message, visibility: 'private', trackUsage: false } });
+    return { status: 'saved', destination: 'private' };
+  } catch {
+    return { status: 'failed', destination: 'private', error: 'Reaction saved locally, but its private repository backup failed. Open extension settings to repair the backup.' };
+  }
+}
 const destinationAdapters = {
-  public: { read: async ({ post }) => {
-    const { lastVisibility = 'public' } = await chrome.storage.local.get('lastVisibility');
-    if (destinations.has(lastVisibility) && destinations.get(lastVisibility).kind === 'integration') return emptyPost(post);
-    return visibleDocument(await readCommit(post));
-  }, react: context => remoteDestination('public', 'react', context) },
+  local: { read: context => localReactions.read(context), react: async context => {
+    const result = await localReactions.react(context);
+    await rememberEmoji(context.event, context.message.trackUsage);
+    const effects = [];
+    const payload = context.message.payload ? { ...context.message.payload,
+      reaction: { ...context.message.payload.reaction, destination: 'raycast' } } : context.message.payload;
+    const raycastEffect = await raycast.afterReaction(context.event, context.message.trackUsage, payload);
+    if (raycastEffect) effects.push({ ...raycastEffect, destination: 'raycast' });
+    const backupEffect = await backUpLocalReaction(context);
+    if (backupEffect) effects.push(backupEffect);
+    return { ...result, effects };
+  } },
   private: { read: context => remoteDestination('private', 'read', context), react: context => remoteDestination('private', 'react', context) },
   slack: { read: context => remoteDestination('slack', 'read', context), react: context => remoteDestination('slack', 'react', context) },
-  raycast: { ...localRaycast, afterSave: ({ event, message }) => raycast.afterReaction(event, message.trackUsage, message.payload) },
+  raycast: { afterSave: ({ event, message }) => raycast.afterReaction(event, message.trackUsage, message.payload) },
 };
 const dispatchDestination = createDestinationDispatcher(destinations, destinationAdapters);
 async function remoteDestination(id, operation, context) {
@@ -185,7 +213,7 @@ async function remoteDestination(id, operation, context) {
     }
     const document = result.document && message.visibility === 'public' ? await visibleDocument(result.document) : result.document;
     const effects = [];
-    if (definition.kind === 'storage' && !result.destination) for (const provider of destinations.entries.filter(item => item.afterSave)) {
+    if (!context.backup && definition.kind === 'storage' && !result.destination) for (const provider of destinations.entries.filter(item => item.afterSave)) {
       const effect = await destinationAdapters[provider.id]?.afterSave?.(context);
       if (effect) effects.push({ ...effect, destination: provider.id });
     }
@@ -218,7 +246,7 @@ async function handle(message, sender) {
   }
   if (message.type === 'service-save' && trusted) {
     const serviceUrl = serviceOrigin(message.serviceUrl);
-    await chrome.storage.local.set({ serviceUrl, lastVisibility: 'public' });
+    await chrome.storage.local.set({ serviceUrl, lastVisibility: 'local' });
     slackCache = null; emojiCache = null; cache.clear(); return { serviceUrl };
   }
   if (['slack-status', 'slack-connect', 'slack-disconnect', 'slack-settings', 'slack-channels', 'slack-emojis'].includes(message.type)) {
@@ -249,8 +277,8 @@ async function handle(message, sender) {
       slackCache = null;
       return { connected: true };
     }
-    if (action === 'settings') await chrome.storage.local.set({ lastVisibility: result.settings.defaultDestination === 'slack' ? 'slack' : 'public' });
-    if (action === 'disconnect') await chrome.storage.local.set({ lastVisibility: 'public' });
+    if (action === 'settings') await chrome.storage.local.set({ lastVisibility: 'local' });
+    if (action === 'disconnect') await chrome.storage.local.set({ lastVisibility: 'local' });
     return result;
   }
   if (message.type === 'linkedin-resolve' && platform === 'linkedin') return resolveLinkedInPost(message.urn);
@@ -258,9 +286,18 @@ async function handle(message, sender) {
     const { emojiUsage } = await chrome.storage.local.get('emojiUsage');
     return { usage: normalizeUsage(emojiUsage) };
   }
+  if (message.type === 'emoji-alias-list') {
+    const { emojiAliases = [] } = await chrome.storage.local.get('emojiAliases');
+    return { aliases: validateEmojiAliases(emojiAliases) };
+  }
+  if (message.type === 'emoji-alias-save' && trusted) {
+    const aliases = validateEmojiAliases(message.aliases);
+    await chrome.storage.local.set({ emojiAliases: aliases });
+    return { aliases };
+  }
   if (message.type === 'visibility-get') {
     const { lastVisibility } = await chrome.storage.local.get('lastVisibility');
-    return { visibility: destinations.has(lastVisibility) ? lastVisibility : 'public' };
+    return { visibility: destinations.has(lastVisibility) && destinations.get(lastVisibility).selectable ? lastVisibility : 'local' };
   }
   if (message.type === 'visibility-save') {
     destinations.get(message.visibility);
@@ -285,7 +322,7 @@ async function handle(message, sender) {
     return { ...state, slack, audience: view.audience, followingError: view.followingError, followingCount: view.following ? view.following.ids.length + view.following.logins.length : null, repository: REPOSITORY, privateRepository: privateRepositories[state.actor?.id] || null,
       mirrorPublic: mirrorPublicPreferences[state.actor?.id] !== false, mirrorError: mirrorErrors[state.actor?.id] || null };
   }
-  if (message.type === 'options') { await chrome.runtime.openOptionsPage(); return {}; }
+  if (message.type === 'options') { await chrome.tabs.create({ url: 'https://reacji.to/about' }); return {}; }
   if (message.type === 'audience-save' && trusted) {
     if (!['everyone', 'following'].includes(message.audience)) throw new Error('Choose Everyone or Following on dev-null.');
     await chrome.storage.local.set({ audience: message.audience });
@@ -346,9 +383,9 @@ async function handle(message, sender) {
   if (readDestination || message.type === 'react') {
     const id = readDestination?.id || message.visibility;
     destinations.get(id);
-    if (!content && (message.type === 'react' || id !== 'public')) throw new Error('Reactions must come from a supported page.');
+    if (!content) throw new Error('Reactions must come from a supported page.');
     const rawPost = message.type === 'react' ? message.event?.post || message.event?.commit : message.post || message.commit;
-    const post = content ? senderPost(rawPost, site, platform) : postRef(rawPost);
+    const post = content ? (message.archive ? archiveTarget(rawPost, site, message.archive) : senderPost(rawPost, site, platform)) : postRef(rawPost);
     await verifyPagePost(post);
     const event = message.type === 'react' ? parseReaction(message.event) : null;
     if (event) {
@@ -366,7 +403,7 @@ async function handle(message, sender) {
         // Retain only the reference for a delivery retry; never capture again implicitly.
         delete item.body.data;
       }
-      message = { ...message, payload: reactionPayload({ url: site.href, title: message.context?.title, quote: message.context?.quote, event, destination: id, attachments }) };
+      message = { ...message, payload: reactionPayload({ url: message.archive ? canonicalUrl(message.archive.url) : site.href, title: message.context?.title, quote: message.context?.quote, event, destination: id, attachments }) };
     }
     return dispatchDestination(id, event ? 'react' : 'read', { post, event, message, platform });
   }
