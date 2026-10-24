@@ -1,15 +1,22 @@
-import { pickerLogo } from './brand.js';
+import { pickerLogo, logoPng } from './brand.js';
+import { nativeEyes } from './native-eyes.js';
+import { installPickerActions } from './picker-actions.js';
 import { installQuickReaction } from './quick-reaction.js';
 import { pagePost, canonicalUrl, placementRef, placementUsers } from './web.js';
 import { capturePlacement, resolvePlacement } from './anchors.js';
+import { resolveTextSelection } from './text-selection.js';
 import { layoutActions, clearActions } from './action-layout.js';
 import { discoverPosts, platformFor } from './adapters.js';
 import { postKey } from './posts.js';
 import css from './content.css';
 import { currentDevNullUser } from './identity.js';
 import emojis from './emoji.json' with { type: 'json' };
-import { emojiValue, summarize, COMMIT_ID } from './protocol.js';
+import { emojiValue, summarize, COMMIT_ID, reactionEmojis, updateReactionUser } from './protocol.js';
+// The dedicated reaction row under social posts needs more design work. While it is off,
+// your emoji takes the eyes' slot, others' emoji sit beside it, and a new pick replaces yours.
+const reactionRow = false;
 import { frequentEmojis } from './emoji-frequency.js';
+import { destinations as defaultDestinations } from './destinations.js';
 
 // One stroke-icon vocabulary for the compact category strip.
 const emojiCategories = [
@@ -25,7 +32,7 @@ const emojiCategories = [
   ['Flags', 'M5 21V3 M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0'],
 ];
 
-export function initializeReactions({ runtime, discover = discoverPosts, beforePlace = () => {} } = {}) {
+export function initializeReactions({ runtime, discover = discoverPosts, beforePlace = () => {}, supportsScreenshots = false, destinations = defaultDestinations } = {}) {
 if (globalThis.__reacjiToContentReady) return;
 const sheet = new CSSStyleSheet();
 sheet.replaceSync(css);
@@ -53,23 +60,43 @@ let actor = null;
 let active = null;
 let pickerGeneration = 0, lastVisibility = 'public';
 let pageIdentity = null, pageLoading = false, pageGeneration = 0, pageHref = location.href;
-let pagePublic = null, pagePrivate = null, privateGeneration = 0;
+let pageDocuments = {}, privateGeneration = 0;
+let connectionState = {}, catalogs = {};
+const dataField = id => destinations.dataField(id);
+const readType = id => destinations.readType(id);
+const customEmojis = () => destinations.entries.flatMap(item => (catalogs[item.id] || []).filter(emoji => item.emojiName?.(emoji.emoji)));
+const emojiName = value => destinations.entries.map(item => item.emojiName?.(value)).find(Boolean) || emojis.find(item => item.emoji === value)?.name || value;
+const integrationContext = () => ({ state: connectionState, catalogs, unicode: emojis, emojiName });
+const routedScope = (scope, emoji) => destinations.resolve(scope || 'public', emoji, integrationContext());
+async function loadCatalogs(state) {
+  connectionState = state;
+  await Promise.all(destinations.entries.filter(item => item.catalogMessage && item.loadWhen?.(state)).map(async item => {
+    try { const value = await send({ type: item.catalogMessage }); catalogs[item.id] = value[item.catalogKey] || []; }
+    catch { catalogs[item.id] = []; }
+  }));
+  for (const item of destinations.entries) if (item.loadWhen && !item.loadWhen(state)) catalogs[item.id] = [];
+  for (const record of records.values()) display(record);
+}
 const optimistic = new Map();
 const movingRecords = new Set();
 let saveQueue = Promise.resolve(), dataRevision = 0;
 const mutationKey = (record, visibility) => `${record.mutationId || record.id}:${visibility}`;
-const usersFor = (record, privateMode = record.visibility === 'private') => {
-  const users = { ...placementUsers(privateMode ? record.privateData : record.data, record.placement) };
+const usersFor = (record, scope = record.visibility || 'public') => {
+  scope = scope === true ? 'private' : scope === false ? 'public' : scope;
+  const users = { ...placementUsers(record[dataField(scope)], record.placement) };
   for (const moving of movingRecords) {
-    const move = moving.moves?.[privateMode ? 'private' : 'public'];
+    const move = moving.moves?.[scope];
     if (moving !== record && move?.hiddenIds.has(record.placement?.id)) delete users[actor?.id];
   }
-  const pending = optimistic.get(mutationKey(record, privateMode ? 'private' : 'public'));
-  if (!pending || (privateMode && (document.hidden || pending.generation !== privateGeneration))) return users;
+  const queue = optimistic.get(mutationKey(record, scope));
+  if (!queue) return users;
   const result = { ...users };
-  const owner = pending.actor || actor || { id: 0, login: 'you' };
-  if (pending.emoji === null) delete result[owner.id];
-  else result[owner.id] = { login: owner.login, emoji: pending.emoji };
+  for (const pending of queue) {
+    if (scope !== 'public' && (document.hidden || pending.generation !== privateGeneration)) continue;
+    const owner = pending.actor || actor || { id: 0, login: 'you' };
+    const next = updateReactionUser(result[owner.id], pending, { login: owner.login });
+    if (next) result[owner.id] = next; else delete result[owner.id];
+  }
   return result;
 };
 const send = async message => {
@@ -87,6 +114,21 @@ const element = (tag, attributes = {}, text) => {
   if (text !== undefined) el.textContent = text;
   return el;
 };
+function paintEmoji(node, value) {
+  const provider = destinations.entries.find(item => item.emojiName?.(value));
+  const custom = (catalogs[provider?.id] || []).find(item => item.emoji === value);
+  node.replaceChildren();
+  let safeImage = false;
+  try { safeImage = custom?.url && provider.imageOrigins?.includes(new URL(custom.url).origin); } catch {}
+  if (safeImage) node.append(element('img', { class: 'custom-emoji', src: custom.url, alt: custom.name, loading: 'lazy', referrerpolicy: 'no-referrer' }));
+  else node.textContent = custom?.unicode || provider?.emojiName(value) || value || '';
+}
+function captureContext(record) {
+  const source = record.placement ? record.anchor : record.article;
+  const copy = source?.cloneNode(true);
+  copy?.querySelectorAll('input,textarea,select,[contenteditable],script,style,reacji-to-reactions').forEach(node => node.remove());
+  return { title: document.title.slice(0, 200), quote: record.placement?.selection?.exact || (copy?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 1500) };
+}
 function host() {
   const el = element('reacji-to-reactions');
   const shadow = el.attachShadow({ mode: 'open' });
@@ -125,16 +167,18 @@ function notify(message, url, retry) {
 function display(record) {
   if (record.dragging) return;
   if (active?.record === record) active.updateRemoval?.();
-  const focused = record.el.shadowRoot.activeElement;
+  const focused = record.rowEl?.shadowRoot.activeElement || record.el.shadowRoot.activeElement;
   const focusedLabel = focused?.classList.contains('chip') ? focused.getAttribute('aria-label') : null;
   record.el.dataset.visibility = record.visibility || 'public';
+  if (record.rowEl) record.rowEl.dataset.visibility = record.visibility || 'public';
   record.chips.replaceChildren();
   record.slot?.querySelectorAll('.chip').forEach(chip => chip.remove());
   for (const group of summarize({ users: usersFor(record) }, actor?.id)) {
     const button = element('button', { type: 'button', class: 'chip', 'aria-pressed': String(group.mine),
-      'aria-label': `${record.visibility === 'private' ? 'Private: ' : ''}${group.emoji}, ${group.count} reaction${group.count === 1 ? '' : 's'}${group.mine ? ', yours' : ''}. ${record.placement ? 'Change reaction' : group.mine ? 'Remove reaction' : 'React with this emoji'}`,
+      'aria-label': `${record.visibility !== 'public' ? destinations.get(record.visibility).label + ': ' : ''}${destinations.entries.map(item => item.emojiName?.(group.emoji)).find(Boolean) || group.emoji}, ${group.count} reaction${group.count === 1 ? '' : 's'}${group.mine ? ', yours' : ''}. ${record.placement ? 'Change reaction' : group.mine ? 'Remove reaction' : 'React with this emoji'}`,
       title: `${group.people.slice(0, 12).map(name => `@${name}`).join(', ')}${group.people.length > 12 ? '…' : ''}` });
-    button.append(document.createTextNode(group.emoji));
+    paintEmoji(button, group.emoji);
+    if (!record.placement && reactionRow) button.append(element('span', { class: 'reaction-count', 'aria-hidden': 'true' }, String(group.count)));
     if (record.placement) { button.setAttribute('aria-haspopup', 'dialog'); button.setAttribute('aria-expanded', String(active?.record === record)); }
 
     if (record.placement && group.mine) { button.classList.add('movable'); button.title += ' · Option/Alt-click to clear · Drag to move'; }
@@ -144,18 +188,25 @@ function display(record) {
       if (!event.isTrusted) return;
       if (record.placement && group.mine && event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.getModifierState?.('AltGraph')) {
         event.preventDefault(); choose(record, null);
-      } else record.placement ? openPicker(record, true) : choose(record, group.mine ? null : group.emoji);
+      } else if (record.placement) openPicker(record, true);
+      else if (reactionRow) choose(record, group.emoji, undefined, { operation: group.mine ? 'remove' : 'add' });
+      else choose(record, group.mine ? null : group.emoji);
     });
-    (group.mine && record.slot ? record.slot : record.chips).append(button);
+    (!reactionRow && group.mine && record.slot ? record.slot : record.chips).append(button);
   }
-  if (focusedLabel) [...record.el.shadowRoot.querySelectorAll('.chip')].find(button => button.getAttribute('aria-label') === focusedLabel)?.focus({ preventScroll: true });
+  if (focusedLabel) [...(record.rowEl || record.el).shadowRoot.querySelectorAll('.chip')].find(button => button.getAttribute('aria-label') === focusedLabel)?.focus({ preventScroll: true });
   record.button.title = 'reacji.to';
   record.el.setAttribute('aria-busy', String(optimistic.has(mutationKey(record, record.visibility || 'public'))));
-  record.button.hidden = Boolean(usersFor(record)[actor?.id]?.emoji);
+  record.button.hidden = Boolean(record.slot?.querySelector('.chip'));
+  if (record.rowEl) {
+    record.rowEl.hidden = !record.chips.childElementCount;
+    record.rowEl.setAttribute('aria-busy', record.el.getAttribute('aria-busy'));
+    positionReactionRow(record);
+  }
   if (!record.placement) layoutActions(record.anchor, record.el, record.article);
   if (record.placement) {
     record.button.hidden = record.chips.childElementCount > 0;
-    const present = Object.values(usersFor(record,false)).some(u=>u.emoji) || Object.values(usersFor(record,true)).some(u=>u.emoji);
+    const present = destinations.entries.map(item => item.id).some(scope => Object.values(usersFor(record, scope)).some(u => u.emoji));
     record.el.hidden = !record.pending && !present && active?.record !== record;
   }
 }
@@ -166,32 +217,36 @@ async function refresh(record) {
   record.loading.add(visibility);
   const generation = privateGeneration, revision = dataRevision;
   try {
-    if (visibility === 'private') {
-      const identity = await siteIdentity();
-      const data = await send({ type: 'private-read', post: record.post, ...identity });
-      if (document.hidden || generation !== privateGeneration || record.visibility !== visibility || revision !== dataRevision || optimistic.size) return;
-      record.privateData = data;
-      if (record.placement && pageIdentity?.id === record.post.id) pagePrivate = record.privateData;
-    } else {
-      const data = await send({ type: 'read', post: record.post });
-      if (revision !== dataRevision || optimistic.size) return;
-      record.data = data;
+    const identity = destinations.get(visibility).requiresIdentity && visibility !== 'public' ? await siteIdentity() : {};
+    const data = await send({ type: readType(visibility), post: record.post, ...identity });
+    if ((visibility !== 'public' && (document.hidden || generation !== privateGeneration)) || record.visibility !== visibility || revision !== dataRevision || optimistic.size) return;
+    record[dataField(visibility)] = data;
+    if (record.placement && pageIdentity?.id === record.post.id) {
+      pageDocuments[visibility] = data;
     }
-    if (record.placement && record.visibility !== 'private' && pageIdentity?.id === record.post.id) pagePublic = record.data;
     record.error = null;
     display(record);
   } catch (error) { if (revision === dataRevision && record.visibility === visibility) { record.error = error.message; display(record); } }
   finally { record.loading.delete(visibility); }
 }
-function choose(record, emoji, placement = record.placement, { trackUsage = true } = {}) {
+function choose(record, emoji, placement = record.placement, { trackUsage = true, rememberScope = true, screenshotId, operation } = {}) {
   const generation = privateGeneration;
+  const requestedVisibility = record.visibility || 'public';
+  if (emoji !== null && operation !== 'remove' && !record.moves?.[record.visibility]) record.visibility = routedScope(record.visibility, emoji);
   const visibility = record.visibility || 'public';
-  rememberVisibility(visibility);
+  const context = { ...(destinations.get(visibility).capturesContext ? captureContext(record) : { title: document.title.slice(0, 200), quote: record.placement?.selection?.exact || '' }), url: location.href };
+  const rememberMode = rememberScope && visibility === requestedVisibility;
+  if (rememberMode) rememberVisibility(visibility);
   const key = mutationKey(record, visibility);
   const move = record.moves?.[visibility];
-  const pending = { actor: actor && { ...actor }, emoji, generation };
+  operation = record.placement || emoji === null ? undefined : operation || (reactionRow ? 'add' : undefined);
+  const pending = { actor: actor && { ...actor }, emoji, operation, generation };
   if (placement) record.placement = placement;
-  optimistic.set(key, pending);
+  optimistic.set(key, [...optimistic.get(key) || [], pending]);
+  const settle = () => {
+    const remaining = (optimistic.get(key) || []).filter(item => item !== pending);
+    if (remaining.length) optimistic.set(key, remaining); else optimistic.delete(key);
+  };
   dataRevision++;
   record.pending = false;
   if (active?.record === record) closePicker();
@@ -203,33 +258,33 @@ function choose(record, emoji, placement = record.placement, { trackUsage = true
   // Preserve click order without locking the picker or the visible reaction.
   const save = async () => {
     try {
-      const identity = await siteIdentity();
+      const identity = destinations.get(visibility).requiresIdentity ? await siteIdentity() : {};
       const target = emoji === null && move ? move.committed : placement;
       const moveFrom = move && emoji !== null && move.committed.id !== target.id ? move.committed.id : null;
-      const result = await send({ type: 'react', event: { version: 1, commit: record.post.id, post: record.post, ...(target ? { placement: target } : {}), ...(moveFrom ? { moveFrom } : {}), emoji }, visibility, trackUsage, ...identity });
+      const result = await send({ type: 'react', event: { version: 1, commit: record.post.id, post: record.post, ...(operation ? { operation } : {}), ...(target ? { placement: target } : {}), ...(moveFrom ? { moveFrom } : {}), emoji }, visibility, context, trackUsage, screenshotId, ...identity });
       if (move) move.committed = target;
       actor = result.actor || actor;
       let savedDocument = result.document;
-      if (!savedDocument) savedDocument = await send({ type: visibility === 'private' ? 'private-read' : 'read', post: record.post, ...identity });
-      const resultDocument = visibility === 'private' && (document.hidden || generation !== privateGeneration) ? null : savedDocument;
+      if (!savedDocument) savedDocument = await send({ type: readType(visibility), post: record.post, ...identity });
+      const resultDocument = visibility !== 'public' && (document.hidden || generation !== privateGeneration) ? null : savedDocument;
       if (record.placement && pageIdentity?.id === record.post.id) {
-        if (visibility === 'private') pagePrivate = resultDocument;
-        else pagePublic = savedDocument;
+        pageDocuments[visibility] = resultDocument;
       }
       for (const r of records.values()) if (postKey(r.post) === postKey(record.post)) {
-        if (visibility === 'private') r.privateData = resultDocument;
-        else r.data = savedDocument;
+        r[dataField(visibility)] = resultDocument;
       }
-      if (optimistic.get(key) === pending) optimistic.delete(key);
+      settle();
       if (result.mirror?.status === 'failed') notify(result.mirror.error);
+      for (const effect of result.effects || []) if (effect.status === 'failed') notify(effect.error);
     } catch (error) {
       // A failure for an earlier click must never undo a newer choice.
-      if (optimistic.get(key) === pending) {
-        optimistic.delete(key);
+      const showFailure = !record.placement || optimistic.get(key)?.at(-1) === pending;
+      settle();
+      if (showFailure) {
         if (move) record.placement = move.committed;
         notify(`${error.message} Previous reaction restored.`, null, () => {
           record.visibility = visibility;
-          choose(record, emoji, placement, { trackUsage });
+          choose(record, emoji, placement, { trackUsage, rememberScope: rememberMode, screenshotId, operation });
         });
       }
     } finally {
@@ -243,24 +298,25 @@ function choose(record, emoji, placement = record.placement, { trackUsage = true
 function closePicker() {
   pickerGeneration++;
   if (!active) return;
-  const { panel, record } = active;
+  const { panel, record, anchor } = active;
   active = null;
   panel.remove();
   record.button.setAttribute('aria-expanded', 'false');
+  record.addButton?.setAttribute('aria-expanded', 'false');
   if (record.placement) { record.pending = false; display(record); }
-  if (record.el.isConnected && !record.el.hidden) (record.button.hidden ? record.chips.querySelector('button') : record.button)?.focus({ preventScroll: true });
+  if (record.el.isConnected && !record.el.hidden) (anchor?.getClientRects().length ? anchor : record.button.hidden ? record.chips.querySelector('button') : record.button)?.focus({ preventScroll: true });
 }
 function positionPicker() {
   if (!active) return;
   if (!active.record.el.isConnected) return closePicker();
-  const box = (active.record.button.hidden ? active.record.el : active.record.button).getBoundingClientRect();
+  const box = (active.anchor?.getClientRects().length ? active.anchor : active.record.button.hidden ? active.record.el : active.record.button).getBoundingClientRect();
   const panel = active.panel;
   const width = panel.offsetWidth, height = panel.offsetHeight;
   panel.style.left = `${Math.max(12, Math.min(box.left, innerWidth - width - 12))}px`;
   const below = box.bottom + 6;
   panel.style.top = `${Math.max(12, Math.min(below + height <= innerHeight - 12 ? below : box.top - height - 6, innerHeight - height - 12))}px`;
 }
-async function openPicker(record, preserveVisibility = false, { focus = true } = {}) {
+async function openPicker(record, preserveVisibility = false, { focus = true, anchor = record.button } = {}) {
   if (active?.record === record) return closePicker();
   closePicker();
   const generation = pickerGeneration;
@@ -268,7 +324,7 @@ async function openPicker(record, preserveVisibility = false, { focus = true } =
     try {
       const preference = await send({ type: 'visibility-get' });
       if (generation !== pickerGeneration || !record.el.isConnected) return;
-      if (['public', 'private'].includes(preference.visibility)) lastVisibility = preference.visibility;
+      if (destinations.has(preference.visibility)) lastVisibility = preference.visibility;
       record.visibility = lastVisibility;
       display(record);
     } catch (error) { notify(error.message); return; }
@@ -295,43 +351,57 @@ async function openPicker(record, preserveVisibility = false, { focus = true } =
   settings.addEventListener('click', event => { if (event.isTrusted) send({ type: 'options' }).catch(error => { status.textContent = error.message; }); });
   head.append(title, identity, settings);
   const visibility = element('div', { class: 'visibility', role: 'group', 'aria-label': 'Reaction visibility' });
-  const publicButton = element('button', { type: 'button', 'aria-pressed': String(record.visibility !== 'private') }, 'Public');
-  const privateButton = element('button', { type: 'button', 'aria-pressed': String(record.visibility === 'private') }, 'Private');
+  const destinationButtons = destinations.entries.map(item => element('button', { type: 'button', 'aria-pressed': String(record.visibility === item.id) }, item.label));
+  const destination = element('p', { class: 'destination help' });
   const removal = element('div', { class: 'current-reaction', hidden: '' });
   const currentEmoji = element('span', { class: 'current-emoji', 'aria-hidden': 'true' });
   const currentLabel = element('span', {}, 'Your reaction');
   const removeButton = element('button', { class: 'remove-reaction', type: 'button' }, 'Clear reaction');
   const updateRemoval = () => {
     const mine = usersFor(record)[actor?.id]?.emoji;
-    removal.hidden = !mine;
-    currentEmoji.textContent = mine || '';
-    currentLabel.textContent = record.visibility === 'private' ? 'Your private reaction' : 'Your reaction';
+    removal.hidden = !record.placement || !mine;
+    paintEmoji(currentEmoji, mine);
+    for (const button of panel.querySelectorAll('.emoji[data-emoji]')) {
+      button.setAttribute('aria-pressed', String(reactionEmojis(usersFor(record, routedScope(record.visibility, button.dataset.emoji))[actor?.id]).includes(button.dataset.emoji)));
+    }
+    currentLabel.textContent = usersFor(record)[actor?.id]?.pending ? 'Unconfirmed reaction' : record.visibility === 'public' ? 'Your reaction' : `Your ${destinations.get(record.visibility).label.toLowerCase()} reaction`;
     positionPicker();
   };
   removeButton.addEventListener('click', event => {
     if (event.isTrusted && usersFor(record)[actor?.id]?.emoji) choose(record, null);
   });
   removal.append(currentEmoji, currentLabel, removeButton);
+  let pickerActions;
   const updateScope = () => {
-    publicButton.setAttribute('aria-pressed', String(record.visibility !== 'private'));
-    privateButton.setAttribute('aria-pressed', String(record.visibility === 'private'));
+    destinationButtons.forEach((button, index) => button.setAttribute('aria-pressed', String(record.visibility === destinations.entries[index].id)));
+    destination.textContent = destinations.get(record.visibility).description || '';
+    destination.hidden = !destination.textContent;
+    categories.hidden = destinations.get(record.visibility).catalogOnly;
     updateRemoval();
   };
   const switchScope = async value => {
     rememberVisibility(value);
-    record.visibility = value; display(record); updateScope();
+    record.visibility = value; search.value = ''; limit = 96; display(record); updateScope(); pickerActions.reset(); draw();
     status.textContent = 'Loading reactions…';
     await refresh(record);
     if (active?.record === record) { status.textContent = record.error || ''; updateScope(); }
   };
-  publicButton.addEventListener('click', event => { if (event.isTrusted) switchScope('public'); });
-  privateButton.addEventListener('click', event => { if (event.isTrusted) switchScope('private'); });
-  visibility.append(publicButton, privateButton);
+  destinationButtons.forEach((button, index) => button.addEventListener('click', event => { if (event.isTrusted) switchScope(destinations.entries[index].id); }));
+  visibility.append(...destinationButtons);
   updateScope();
-  panel.append(categories, head, visibility, removal, controls, grid, status);
+  const selectedText = element('blockquote', { class: 'selected-text' }, record.placement?.selection?.exact || '');
+  selectedText.hidden = !selectedText.textContent;
+  const screenshot = element('input', { type: 'checkbox' });
+  const captureOption = element('label', { class: 'capture-option' });
+  captureOption.append(screenshot, document.createTextNode('Include screenshot · saved privately'));
+  captureOption.title = 'Captures everything visible in this tab, including form fields. Enable screenshot access in Settings first.';
+  panel.append(head, visibility, destination, selectedText, removal);
+  if (supportsScreenshots && window === window.top) panel.append(captureOption);
+  panel.append(categories, controls, grid, status);
   overlay.shadow.append(panel);
-  active = { record, panel, status, updateRemoval };
+  active = { record, panel, status, updateRemoval, anchor };
   record.button.setAttribute('aria-expanded', 'true');
+  record.addButton?.setAttribute('aria-expanded', 'true');
   let limit = 96;
   let usage = [], sections = [];
   const setCategory = index => categoryButtons.forEach((button, at) => {
@@ -339,17 +409,41 @@ async function openPicker(record, preserveVisibility = false, { focus = true } =
     button.tabIndex = at === index ? 0 : -1;
   });
   const makeEmoji = item => {
-    const button = element('button', { class: 'emoji', type: 'button', 'aria-label': item.name, title: item.name }, item.emoji);
-    button.addEventListener('click', event => {
-      if (!event.isTrusted) return;
-      const mine = usersFor(record)[actor?.id]?.emoji;
-      choose(record, mine === item.emoji ? null : item.emoji);
+    const selected = reactionEmojis(usersFor(record, routedScope(record.visibility, item.emoji))[actor?.id]).includes(item.emoji);
+    const button = element('button', { class: 'emoji', type: 'button', 'aria-label': item.name, title: item.name, 'data-emoji': item.emoji, 'aria-pressed': String(selected) });
+    paintEmoji(button, item.emoji);
+    pickerActions?.decorate(button, item);
+    button.addEventListener('click', async event => {
+      if (!event.isTrusted || panel.dataset.capturing) return;
+      const scope = routedScope(record.visibility, item.emoji);
+      const mine = reactionEmojis(usersFor(record, scope)[actor?.id]).includes(item.emoji);
+      const rememberScope = scope === record.visibility;
+      let screenshotId;
+      if (screenshot.checked && !mine) {
+        panel.dataset.capturing = 'true';
+        const hiding = new CSSStyleSheet();
+        hiding.replaceSync('reacji-to-reactions{visibility:hidden!important}');
+        document.adoptedStyleSheets = [...document.adoptedStyleSheets, hiding];
+        try {
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          screenshotId = (await send({ type: 'screenshot-prepare', destination: scope })).id;
+        } catch (error) { status.textContent = error.message; return; }
+        finally { document.adoptedStyleSheets = document.adoptedStyleSheets.filter(sheet => sheet !== hiding); delete panel.dataset.capturing; }
+        if (active?.panel !== panel) return;
+      }
+      record.visibility = scope;
+      choose(record, record.placement && mine ? null : item.emoji, record.placement, { rememberScope, screenshotId, ...(!record.placement ? { operation: mine ? 'remove' : reactionRow ? 'add' : undefined } : {}) });
     });
     return button;
   };
   const draw = () => {
     const query = search.value.trim().toLowerCase();
     const pasted = emojiValue(query);
+    const catalog = pickerActions?.render(query, limit);
+    if (catalog) {
+      if (catalog.remaining) { const more = element('button', { class: 'more', type: 'button' }, `Show more · ${catalog.remaining} remaining`); more.addEventListener('click', () => { limit += 96; draw(); }); grid.append(more); }
+      positionPicker(); return;
+    }
     sections = [];
     grid.replaceChildren();
     const addSection = (name, items) => {
@@ -359,12 +453,13 @@ async function openPicker(record, preserveVisibility = false, { focus = true } =
       choices.append(...items.map(makeEmoji)); section.append(choices); grid.append(section); sections.push(section);
     };
     if (!query) {
-      const byEmoji = new Map(emojis.map(item => [item.emoji, item]));
+      const byEmoji = new Map([...emojis, ...customEmojis()].map(item => [item.emoji, item]));
       addSection('Frequently used', frequentEmojis(usage).map(value => byEmoji.get(value)).filter(Boolean));
       for (const [name] of emojiCategories.slice(1)) addSection(name, emojis.filter(item => item.group === name));
+
       setCategory(0);
     } else {
-      const results = emojis.filter(item => pasted ? item.emoji === pasted : `${item.name} ${item.group}`.toLowerCase().includes(query));
+      const results = [...emojis, ...customEmojis()].filter(item => pasted ? item.emoji === pasted : `${item.name} ${item.group}`.toLowerCase().includes(query));
       setCategory(-1);
       categoryButtons[0].tabIndex = 0;
       addSection('Search results', results.slice(0, limit));
@@ -377,6 +472,10 @@ async function openPicker(record, preserveVisibility = false, { focus = true } =
     }
     positionPicker();
   };
+  pickerActions = installPickerActions({ controls, search, grid, makeEmoji, registry: destinations, selected: () => record.visibility,
+    context: integrationContext, currentEmoji: emoji => reactionEmojis(usersFor(record, routedScope(record.visibility, emoji))[actor?.id]).includes(emoji) ? emoji : null,
+    openSettings: () => send({ type: 'options' }).catch(error => { status.textContent = error.message; }),
+  });
   categoryButtons.forEach((button, index) => {
     button.addEventListener('click', () => {
       if (search.value) { search.value = ''; draw(); }
@@ -426,12 +525,14 @@ async function openPicker(record, preserveVisibility = false, { focus = true } =
   void refresh(record);
   try {
     const state = await send({ type: 'status' });
-    actor = state.actor;
+    actor = state.actor || { id: 0, login: 'you' };
     identity.textContent = actor?.login ? `@${actor.login}` : '';
     identity.title = identity.textContent;
-    if (active?.panel === panel) status.textContent = state.followingError || (state.connected ? '' : state.authError || 'Connect GitHub in settings before reacting.');
+    if (active?.panel === panel) status.textContent = state.followingError || (state.connected || !destinations.get(record.visibility).requiresIdentity ? '' : state.authError || 'Connect GitHub in settings before reacting.');
     updateScope();
     for (const r of records.values()) display(r);
+    await loadCatalogs(state);
+    if (active?.panel === panel) draw();
   } catch (error) { if (active?.panel === panel) status.textContent = error.message; }
 }
 const observer = new IntersectionObserver(entries => {
@@ -446,7 +547,7 @@ function scan() {
   for (const [el, record] of records) {
     if (record.placement) continue;
     const current = posts.find(p => p.anchor === record.anchor && postKey(p.post) === record.id);
-    if (!el.isConnected || !current) { clearActions(record.anchor); observer.unobserve(el); records.delete(el); el.remove(); if (active?.record === record) closePicker(); }
+    if (!el.isConnected || !current) { clearActions(record.anchor); observer.unobserve(el); records.delete(el); el.remove(); record.rowEl?.remove(); if (active?.record === record) closePicker(); }
   }
   for (const { article, anchor, post, inline } of posts) {
     if ([...records.values()].some(r => r.anchor === anchor)) continue;
@@ -456,25 +557,47 @@ function scan() {
   positionActions();
 }
 function positionActions() {
-  for (const record of records.values()) if (!record.placement) layoutActions(record.anchor, record.el, record.article);
+  for (const record of records.values()) if (!record.placement) { positionReactionRow(record); layoutActions(record.anchor, record.el, record.article); }
+}
+function positionReactionRow(record) {
+  if (!record.rowEl) return;
+  const actionRow = record.anchor.parentElement;
+  const after = actionRow === record.article ? record.el : actionRow;
+  if (after?.isConnected && after.nextElementSibling !== record.rowEl) after.after(record.rowEl);
 }
 function addRecord({ article, anchor, post, inline, placement, pending = false }) {
     const { el, shadow } = host();
     if (!inline) { el.style.display = 'block'; el.style.padding = '4px 0 8px'; }
     const bar = element('span', { class: 'bar' });
     const button = element('button', { class: 'trigger', type: 'button', title: 'reacji.to', 'aria-label': 'React with an emoji', 'aria-haspopup': 'dialog', 'aria-expanded': 'false' });
-    button.append(element('img', { src: pickerLogo, width: 16, height: 16, alt: '', 'aria-hidden': 'true' }));
+    button.append(!placement && nativeEyes(post.platform) || element('img', { src: pickerLogo, width: 16, height: 16, alt: '', 'aria-hidden': 'true' }));
     const chips = element('span', { class: 'bar' });
     const slot = placement ? null : element('span', { class: 'reaction-slot' });
     if (slot) slot.append(button);
-    bar.append(slot || button, chips); shadow.append(bar);
+    bar.append(slot || button); if (placement || !reactionRow) bar.append(chips); shadow.append(bar);
+    let rowEl, addButton;
+    if (!placement && reactionRow) {
+      const row = host(); rowEl = row.el;
+      rowEl.setAttribute('data-reaction-row', ''); rowEl.hidden = true;
+      rowEl.style.cssText = 'display:block;max-width:100%;margin:6px 0 2px;';
+      const rowBar = element('div', { class: 'post-reactions', role: 'group', 'aria-label': 'Post reactions' });
+      addButton = element('button', { class: 'add-reaction', type: 'button', title: 'Add reaction', 'aria-label': 'Add reaction', 'aria-haspopup': 'dialog', 'aria-expanded': 'false' });
+      const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      icon.setAttribute('viewBox', '0 0 24 24'); icon.setAttribute('aria-hidden', 'true');
+      const path = document.createElementNS(icon.namespaceURI, 'path');
+      path.setAttribute('d', 'M20 13a8 8 0 1 1-9-9 M8 10h.01 M14 10h.01 M8 14s1 2 3 2 3-2 3-2 M19 2v6 M16 5h6');
+      icon.append(path); addButton.append(icon); rowBar.append(chips, addButton); row.shadow.append(rowBar);
+      rowBar.addEventListener('click', event => event.stopPropagation());
+    }
     if (placement) { document.documentElement.append(el); el.style.cssText = 'position:absolute;z-index:2147483000;'; bar.classList.add('pin'); }
     else anchor.after(el);
-    const record = { id: postKey(post) + (placement ? `:${placement.id}` : ''), post, article, anchor, el, button, chips, slot, placement, pending, data: null, privateData: null, visibility: 'public', visible: false };
+    const record = { id: postKey(post) + (placement ? `:${placement.id}` : ''), post, article, anchor, el, button, chips, slot, rowEl, addButton, placement, pending, ...Object.fromEntries(destinations.entries.map(item => [dataField(item.id), null])), visibility: lastVisibility, visible: false };
+    if (rowEl) positionReactionRow(record);
     if (placement) { record.mutationId = crypto.randomUUID(); wirePinDrag(record, bar); }
     records.set(el, record);
     bar.addEventListener('click', event => event.stopPropagation());
     button.addEventListener('click', event => { if (event.isTrusted) openPicker(record); });
+    addButton?.addEventListener('click', event => { if (event.isTrusted) openPicker(record, true, { anchor: addButton }); });
     observer.observe(el);
     return record;
 }
@@ -542,7 +665,15 @@ function positionPin(el, left, top) {
   el.style.left = `${left - origin.left}px`;
   el.style.top = `${top - origin.top}px`;
 }
+const highlightSheet = new CSSStyleSheet();
+highlightSheet.replaceSync('::highlight(reacji-text){background:#f4df76;color:#121417}');
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, highlightSheet];
 function positionPins() {
+  if (globalThis.Highlight && CSS.highlights) {
+    const ranges = [...records.values()].filter(record => record.placement?.selection && (record.pending || Object.values(usersFor(record)).some(user => user.emoji)))
+      .map(record => resolveTextSelection(record.anchor, record.placement.selection)).filter(Boolean);
+    CSS.highlights.set('reacji-text', new Highlight(...ranges));
+  }
   for (const record of records.values()) if (record.placement) {
     if (record.dragging) continue;
     record.anchor = resolvePlacement(record.placement);
@@ -567,18 +698,21 @@ function reconcilePins() {
       observer.unobserve(el); records.delete(el); el.remove();
     }
   }
-  const placements = { ...pagePrivate?.placements, ...pagePublic?.placements };
+  const placements = Object.assign({}, ...[...destinations.entries].reverse().map(item => pageDocuments[item.id]?.placements));
   for (const [id, item] of Object.entries(placements)) {
     let placement; try { placement = placementRef(item.anchor); } catch { continue; }
     if (placement.id !== id) continue;
     let record = [...records.values()].find(r=>r.placement?.id === id);
     if (!record) {
       const anchor = resolvePlacement(placement);
-      if (!anchor || (!Object.values(item.users || {}).some(u=>u.emoji) && !Object.values(pagePrivate?.placements?.[id]?.users || {}).some(u=>u.emoji))) continue;
+      if (!anchor || !Object.values(pageDocuments).some(doc => Object.values(doc?.placements?.[id]?.users || {}).some(u => u.emoji))) continue;
       record = addRecord({ article: anchor, anchor, post: pageIdentity, inline: true, placement });
     }
-    record.data = pagePublic; record.privateData = pagePrivate;
-    if (active?.record !== record && !Object.values(usersFor(record,false)).some(u=>u.emoji) && Object.values(usersFor(record,true)).some(u=>u.emoji)) record.visibility = 'private';
+    for (const item of destinations.entries) record[dataField(item.id)] = pageDocuments[item.id];
+    if (active?.record !== record && !Object.values(usersFor(record)).some(user => user.emoji)) {
+      const populated = destinations.entries.find(item => Object.values(usersFor(record, item.id)).some(user => user.emoji));
+      if (populated) record.visibility = populated.id;
+    }
     display(record);
   }
   positionPins();
@@ -590,20 +724,25 @@ async function loadPage() {
   try {
     const post = await pagePost(location.href);
     const state = await send({ type: 'status' });
-    const data = await send({ type: 'read', post });
-    let privateData = null;
-    if (state.connected && state.privateRepository) {
-      try { privateData = await send({ type: 'private-read', post, ...await siteIdentity() }); } catch { /* Public pins remain available when private access needs reconnecting. */ }
-    }
-    if (generation !== pageGeneration || document.hidden || revision !== dataRevision || optimistic.size) return;
-    pageIdentity = post; pagePublic = data; pagePrivate = privateData; reconcilePins();
+    const preference = await send({ type: 'visibility-get' });
+    const selected = destinations.has(preference.visibility) ? preference.visibility : 'public';
+    const entries = destinations.get(selected).kind === 'integration' ? [destinations.get(selected)] : destinations.entries;
+    actor = state.actor || { id: 0, login: 'you' };
+    const loaded = {};
+    await Promise.all(entries.filter(entry => entry.loadWhen?.(state)).map(async entry => {
+      try {
+        loaded[entry.id] = await send({ type: readType(entry.id), post, ...(entry.requiresIdentity && entry.id !== 'public' ? await siteIdentity() : {}) });
+        if (generation !== pageGeneration || document.hidden || revision !== dataRevision || optimistic.size) return;
+        pageIdentity = post; pageDocuments = { ...loaded }; reconcilePins();
+      } catch { /* A failed destination read never falls back to another store. */ }
+    }));
   } catch { /* A new page without reaction data needs no interruption. */ }
   finally { pageLoading = false; if (generation !== pageGeneration) loadPage(); }
 }
 function pageChanged() {
   if (pageHref === location.href) return;
   movingRecords.clear();
-  pageHref = location.href; pageGeneration++; pageIdentity = null; pagePublic = null; pagePrivate = null;
+  pageHref = location.href; pageGeneration++; pageIdentity = null; pageDocuments = {};
   for (const [el,record] of records) if (record.placement) { if (active?.record === record) closePicker(); observer.unobserve(el); el.remove(); records.delete(el); }
   loadPage();
 }
@@ -612,11 +751,12 @@ async function placeReaction(context, options) {
   if (!overlay.el.isConnected) document.body.append(overlay.el);
   pageChanged();
   try {
-    const placement = capturePlacement(context.target, context.x, context.y);
+    const placement = placementRef({ ...capturePlacement(context.target, context.x, context.y), ...(context.selection ? { selection: context.selection } : {}) });
     const post = await pagePost(context.href);
     if (context.href !== location.href || !context.target.isConnected) return;
     let record = [...records.values()].find(r=>r.placement && r.anchor === context.target && postKey(r.post) === postKey(post));
-    if (options?.toggle && record && usersFor(record)[actor?.id]?.emoji) {
+    if (context.selection && record) record.placement = placement;
+    if (!context.selection && options?.toggle && record && usersFor(record)[actor?.id]?.emoji) {
       choose(record, null);
       return record;
     }
@@ -627,7 +767,7 @@ async function placeReaction(context, options) {
     return record;
   } catch (error) { notify(error.message); }
 }
-installQuickReaction({ cursor: pickerLogo, enabled: () => !active, place: context => placeReaction(context, { toggle: true }) });
+installQuickReaction({ cursor: pickerLogo, cursorHighDpi: `data:image/png;base64,${logoPng}`, enabled: () => !active, place: context => placeReaction(context, { toggle: true }) });
 let scheduled = false;
 function scheduleScan() {
   if (!scheduled) { scheduled = true; requestAnimationFrame(() => { scheduled = false; pageChanged(); scan(); reconcilePins(); }); }
@@ -636,13 +776,18 @@ new MutationObserver(mutations => {
   if (mutations.every(mutation => mutation.target.closest?.('reacji-to-reactions'))) return;
   scheduleScan();
 }).observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['href', 'data-urn', 'data-id', 'data-commit', 'componentkey', 'class', 'style'] });
-new MutationObserver(() => { theme(overlay.el); for (const record of records.values()) theme(record.el); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+new MutationObserver(() => { theme(overlay.el); for (const record of records.values()) { theme(record.el); if (record.rowEl) theme(record.rowEl); } }).observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
 addEventListener('resize', () => { positionPins(); positionActions(); positionPicker(); });
 addEventListener('scroll', () => { positionPins(); positionPicker(); if (platform === 'linkedin') scheduleScan(); }, { passive: true, capture: true });
 setInterval(() => { pageChanged(); if (!document.hidden) { loadPage(); for (const record of records.values()) if (record.visible && !record.placement) refresh(record); } }, 30000);
 addEventListener('popstate',pageChanged); addEventListener('hashchange',pageChanged);
-document.addEventListener('visibilitychange', () => { if (document.hidden) { privateGeneration++; closePicker(); pagePrivate = null; for (const record of records.values()) { record.privateData = null; display(record); } } else { loadPage(); for (const record of records.values()) if (record.visible && !record.placement) refresh(record); } });
-send({ type: 'status' }).then(state => { actor = state.actor; for (const record of records.values()) display(record); }).catch(() => {});
+document.addEventListener('visibilitychange', () => { if (document.hidden) { privateGeneration++; closePicker(); for (const item of destinations.entries.filter(item => item.id !== 'public')) { delete pageDocuments[item.id]; for (const record of records.values()) record[dataField(item.id)] = null; } for (const record of records.values()) display(record); } else { loadPage(); for (const record of records.values()) if (record.visible && !record.placement) refresh(record); } });
+send({ type: 'status' }).then(async state => {
+  actor = state.actor || { id: 0, login: 'you' }; await loadCatalogs(state);
+  const preference = await send({ type: 'visibility-get' });
+  if (destinations.has(preference.visibility)) lastVisibility = preference.visibility;
+  for (const record of records.values()) { if (!record.placement && !active) { record.visibility = lastVisibility; void refresh(record); } display(record); }
+}).catch(() => {});
 globalThis.__reacjiToContentReady = true;
 scan();
 loadPage();

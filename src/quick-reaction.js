@@ -1,7 +1,10 @@
+import { caretAt, rangeBetween, captureTextSelection } from './text-selection.js';
 // Hold Option/Alt to place a reaction without activating the page underneath.
-export function installQuickReaction({ cursor, enabled, place }) {
+export function installQuickReaction({ cursor, cursorHighDpi, enabled, place }) {
   const sheet = new CSSStyleSheet();
-  sheet.replaceSync(`:root, :root * { cursor: url("${cursor}") 16 16, crosshair !important; }`);
+  // Keep a 32 CSS-pixel cursor, but supply enough pixels for Retina displays.
+  const image = cursorHighDpi ? `image-set(url("${cursor}") 1x, url("${cursorHighDpi}") 4x)` : `url("${cursor}")`;
+  sheet.replaceSync(`:root, :root * { cursor: ${image} 16 16, crosshair !important; }`);
   let held = false, cancelled = false, showing = false, press = null;
   let hovered = document.body;
   const excluded = el => !(el instanceof Element) || el.isContentEditable ||
@@ -39,6 +42,11 @@ export function installQuickReaction({ cursor, enabled, place }) {
     if (!event.isTrusted) return;
     hovered = event.target;
     held = altOnly(event);
+    if (press && !press.cancelled && type === 'pointermove' && Math.hypot(event.clientX - press.x, event.clientY - press.y) > 6) {
+      press.dragged = true;
+      press.range = rangeBetween(press.start, caretAt(event.clientX, event.clientY));
+      if (press.range) { const selection = getSelection(); selection.removeAllRanges(); selection.addRange(press.range); }
+    }
     update();
   }, true);
   addEventListener('pointerout', event => { if (!event.relatedTarget) show(false); }, true);
@@ -51,7 +59,7 @@ export function installQuickReaction({ cursor, enabled, place }) {
     if (!event.isTrusted || event.button !== 0) return;
     press = null;
     if (!altOnly(event) || cancelled || !eligible(event.target)) return;
-    press = { target: event.target, x: event.clientX, y: event.clientY, href: location.href };
+    press = { target: event.target, x: event.clientX, y: event.clientY, href: location.href, start: caretAt(event.clientX, event.clientY) };
     stop(event);
   }, true);
   for (const type of ['mousedown', 'pointerup', 'mouseup']) addEventListener(type, event => {
@@ -64,8 +72,14 @@ export function installQuickReaction({ cursor, enabled, place }) {
     cancelled = event.altKey;
     show(false);
     stop(event);
-    // A drag or navigation during the gesture is not a placement click.
-    if (context.cancelled || context.href !== location.href || Math.hypot(event.clientX - context.x, event.clientY - context.y) > 6) return;
+    if (context.cancelled || context.href !== location.href) return;
+    if (context.dragged || Math.hypot(event.clientX - context.x, event.clientY - context.y) > 6) {
+      const span = captureTextSelection(context.range);
+      if (!span) return;
+      const box = context.range.getBoundingClientRect();
+      place({ ...context, ...span, x: box.left + box.width / 2, y: box.bottom });
+      return;
+    }
     place(context);
   }, true);
 }

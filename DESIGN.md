@@ -164,9 +164,11 @@ Settings primary buttons are blue; secondary buttons use wash. Both use the docu
 
 ### Reaction chips and page toolbar
 
-The eyes trigger and a selected emoji each occupy the same fixed (32 × 32px) slot, or (40 × 40px) for a page pin. Empty chip containers take no space, so selecting or clearing one reaction does not shift neighboring controls. Chips use neutral gray backgrounds independent of the host site’s accent color. Private reactions use a darker gray with no lock prefix; their accessible label still says Private. The user’s selected reaction uses `aria-pressed="true"` and replaces the eyes trigger on every platform. Removing it restores the eyes. The generic page toolbar encloses these same compact controls and the eyes trigger; it is not a large content card. The picker includes a wrap-safe target hostname and excerpt for webpage placements.
+Post reactions on X, LinkedIn, and dev-null appear in their own wrapping row below the native actions. Each pill combines a platform emoji and a count of distinct people. A blue border, pale blue fill, and darker blue count identify your selected emoji; unselected pills use a neutral fill. Clicking a pill adds or removes only that emoji. A smile-plus button at the end opens the same picker, and the eyes button remains in its (32 × 32px) native-action slot. The row disappears when its current destination has no reactions. Private reactions keep their accessible Private prefix, with no lock icon.
 
-On X and LinkedIn, reacji sits immediately after the like action; on dev-null it sits after the star. The shared engine divides each full action row into equal slots, including grouped trailing actions when present. It centers the icons themselves, independently of counter widths, and flattens grouped action wrappers without moving native controls. All three website examples use this same layout. When equal slots are narrower than 80px, native labels wrap below their icons and additional reaction chips stack below the personal slot. The personal reaction has a reserved slot before other reactions, so joining an existing reaction does not move the eyes or neighboring icons.
+The native action row still divides into equal slots and centers icons independently of native counter widths. Reactions never occupy those slots or change their width. The dedicated row wraps with (6px) gaps, (32px) pill height, and (16px) radius; counts are (13px), weight (600). All three website examples use the same engine and layout.
+
+Generic webpage placements retain a single reaction per person at each point, with their (40 × 40px) controls, editing picker, and drag behavior. Their eyes trigger is replaced by the selected reaction at that point.
 
 ### Picker and visibility switch
 
@@ -179,6 +181,14 @@ Frequently used opens first with sixteen choices, ranked by successful reaction 
 The native full-width audience select offers exact **Everyone** and **People I follow on dev-null** labels. The adjacent help text states that the user's own reactions remain visible and public reactions remain public. Refresh following list is secondary; saving or refreshing reports status directly beneath the controls.
 
 GitHub connection uses primary blue actions and secondary support actions. Device authorization reveals a selectable monospace code and wrapping action row. Private repository setup reveals only in the applicable connection state and keeps a native selector. Error text uses `light-dark(#b42318,#ff9898)`. Password-field CSS remains in the stylesheet, but no password input is rendered in current settings; do not manufacture one from that legacy rule.
+
+### Slack workspace and picker destinations
+
+Slack settings extend the same ruled sections, native full-width selectors, wrapping action rows, and light/dark palette. Connected state reveals the workspace, imported emoji count, default destination, and emoji rules. Rule rows pair a wrapping emoji-to-channel label with a secondary Remove button; additions and removals require Save Slack settings. Channel labels identify private and externally shared channels, and an unavailable saved destination remains visible. The optional Worker origin field sits inside a disclosure.
+
+The picker has one **Public / Private / Slack / Raycast** destination row beneath the brand header. There is no separate Emoji/integration toolbar. All destinations come from a shared registry; integrations show their catalog and storage destinations show the standard emoji categories. Destination help wraps beneath that switch. Routed emoji carry a small blue dot; hover or keyboard focus reveals a **Goes to Slack** or **Goes to Raycast** explanation in the search area. Explicit integration selection takes precedence; Slack rules can redirect emojis chosen in Public or Private. Custom emoji images fit within (24 × 24px) in the picker and (18 × 18px) in reaction chips.
+
+Evidence checked for this extension: `artifacts/slack-settings-1280.png`, `artifacts/slack-settings-390.png`, `artifacts/slack-settings-dark.png`, `artifacts/picker-slack-mobile.png`, and `artifacts/picker-raycast.png`, against `src/options.html`, `src/options.css`, `src/slack-options.js`, `src/reaction-app.js`, `src/content.css`, and `src/picker-actions.js`.
 
 ## Do's and Don'ts
 
@@ -196,3 +206,10 @@ GitHub connection uses primary blue actions and secondary support actions. Devic
 - **Don't** imply that audience filtering changes a reaction's privacy.
 - **Don't** imply that switching visibility moves or erases the other stored reaction.
 - **Don't** assume Geist is bundled or replace platform emoji with a new icon set.
+
+
+Eyes-drag selections appear as a short, scrollable quote in the picker and a yellow highlight on the saved page span. An unchecked **Include screenshot · saved privately** control sits below the destination explanation in the extension. Its spacing follows the 14px picker gutter. Screenshot capture is a per-reaction choice; the website trial omits this privileged capability. Backend selection is a separate Settings section shared by integrations and private attachments.
+
+## Native social reaction eyes
+
+Social action triggers use monochrome vector eyes, sized and colored from an unselected neighboring native icon. X uses a 20px filled-path outline (18px in its narrow website demo), LinkedIn a 16px filled-path outline with its heavier 1.5px optical weight, and dev-null a 16px round-stroked outline. Stroke-based host icons supply their stroke weight; filled stroke families use solid eyes with negative-space pupils. The 32px action slot stays fixed when a selected emoji replaces the eyes. Product branding and the placement cursor retain the photorealistic blue eyes.

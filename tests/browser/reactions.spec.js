@@ -15,13 +15,13 @@ test('nested dev-null replies use their own permalink and eyes sit outside the S
   }}};});
   await page.goto('https://dev-null.sh/');await page.addScriptTag({path:'dist/content.js'});
   const parent=page.locator('#parent > reacji-to-reactions'), reply=page.locator('#child > reacji-to-reactions');
-  await expect(parent).toHaveCount(1);await expect(reply).toHaveCount(1);
+  await expect(parent).toHaveCount(2);await expect(reply).toHaveCount(2);
   await expect(page.locator('#unknown reacji-to-reactions')).toHaveCount(0);
   await expect(page.locator('[data-slot="tooltip-trigger"] reacji-to-reactions')).toHaveCount(0);
   await expect(reply.getByRole('button',{name:'React with an emoji'})).toHaveAttribute('title','reacji.to');
   await reply.getByRole('button',{name:'React with an emoji'}).click();
   await page.getByRole('searchbox').fill('🤪');await page.getByRole('button',{name:'zany face',exact:true}).click();
-  await expect(reply.locator('.trigger')).toBeHidden();
+  await expect(reply.locator('.trigger')).toBeVisible();
   await expect(reply.locator('.chip')).toContainText('🤪');await expect(parent.locator('.chip')).toHaveCount(0);
   await expect.poll(()=>page.evaluate(()=>sent.filter(m=>m.type==='react').length)).toBe(1);
   expect(await page.evaluate(()=>sent.find(m=>m.type==='react').event.post)).toEqual({platform:'devnull',id:child,author:'child'});
@@ -39,7 +39,11 @@ async function setup(page, { connected = true, fail = false, readFail = false } 
       if (message.type === 'react') {
         if (!connected) return { ok: false, error: 'Connect GitHub in extension settings before reacting.' };
         if (fail) return { ok: false, error: 'GitHub refused this request. Check token permissions or wait for the rate limit to reset.' };
-        documents[message.visibility].users[42] = { login: 'octocat', emoji: message.event.emoji };
+        const previous=documents[message.visibility].users[42];
+        const values=previous?.emojis || (previous?.emoji ? [previous.emoji] : []);
+        const emoji=message.event.emoji;
+        const next=message.event.operation==='add'?[...new Set([...values,emoji])]:message.event.operation==='remove'?values.filter(value=>value!==emoji):emoji?[emoji]:[];
+        if(next.length)documents[message.visibility].users[42]={login:'octocat',emoji:next[0],emojis:next};else delete documents[message.visibility].users[42];
         return { ok: true, value: { mode: 'committed', document: structuredClone(documents[message.visibility]), actor: { id: 42, login: 'octocat' } } };
       }
       return { ok: true, value: {} };
@@ -57,16 +61,16 @@ test('eyes icon sits immediately beside the star; search, react, change, remove'
   await page.getByRole('button', { name: 'woman technologist: medium-dark skin tone', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(first.getByRole('button', { name: /👩🏾‍💻.*yours/ })).toBeVisible();
-  await expect(first.locator('.trigger')).toBeHidden();
+  await expect(first.locator('.trigger')).toBeVisible();
   await page.evaluate(() => document.documentElement.style.setProperty('--accent', '#2457ed'));
   await page.mouse.move(0, 0);
-  await expect(first.locator('.chip[aria-pressed=true]')).toHaveCSS('background-color', 'rgb(238, 240, 242)');
+  await expect(first.locator('.chip[aria-pressed=true]')).toHaveCSS('color', 'rgb(34, 86, 187)');
   await first.getByRole('button', { name: /🔥, 1 reaction/ }).click();
   await expect(first.getByRole('button', { name: /🔥, 2 reactions, yours/ })).toBeVisible();
   await first.getByRole('button', { name: /🔥, 2 reactions, yours/ }).click();
   await expect(first.getByRole('button', { name: /🔥, 1 reaction/ })).toBeVisible();
   await expect(first.locator('.trigger')).toBeVisible();
-  await expect.poll(() => page.evaluate(() => sent.filter(m => m.type === 'react').map(m => m.event.emoji))).toEqual(['👩🏾‍💻', '🔥', null]);
+  await expect.poll(() => page.evaluate(() => sent.filter(m => m.type === 'react').map(m => m.event.emoji))).toEqual(['👩🏾‍💻', '🔥', '🔥']);
 });
 test('keyboard, pasting multi-codepoint emoji, and empty search', async ({ page }) => {
   await setup(page);
@@ -163,10 +167,10 @@ test('Public / Private picker switcher keeps private emoji out of public counts'
   await expect(page.getByRole('button', { name: 'Private', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('searchbox').fill('🚀'); await page.getByRole('button', { name: 'rocket', exact: true }).click();
   const privateChip = page.getByRole('button', { name: /Private: 🚀, 1 reaction/ }).first();
-  await expect(privateChip).toHaveText('🚀');
+  await expect(privateChip).toHaveText('🚀1');
   await page.mouse.move(0, 0);
-  await expect(privateChip).toHaveCSS('background-color', 'rgb(213, 217, 223)');
-  await expect(page.locator('article[data-commit]').first().locator('.trigger')).toBeHidden();
+  await expect(privateChip).toHaveCSS('color', 'rgb(34, 86, 187)');
+  await expect(page.locator('article[data-commit]').first().locator('.trigger')).toBeVisible();
   await privateChip.click();
   await trigger.click();
   await page.getByRole('button', { name: 'Public', exact: true }).click();

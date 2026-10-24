@@ -1,3 +1,7 @@
+import { initializeBackendOptions } from './backend-options.js';
+import { initializeScreenshotOptions } from './screenshot-options.js';
+import { initializeSlackOptions } from './slack-options.js';
+import { initializeRaycastOptions } from './raycast-options.js';
 import { REPOSITORY } from './config.js';
 const status = document.querySelector('#status');
 const disconnect = document.querySelector('#disconnect');
@@ -165,3 +169,11 @@ async function refreshUpdates(force = false) {
 }
 updateCheck.addEventListener('click', () => refreshUpdates(true));
 refreshUpdates();
+
+initializeRaycastOptions(send);
+
+initializeSlackOptions(send);
+
+initializeScreenshotOptions(send);
+
+initializeBackendOptions(send);

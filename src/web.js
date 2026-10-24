@@ -15,12 +15,18 @@ export async function pagePost(value) {
 export async function verifyPagePost(post) {
   if (post.platform === 'web' && (await pagePost(post.url)).id !== post.id) throw new Error('Page URL does not match its saved identity.');
 }
+export function textSelectionRef(value) {
+  if (!value || typeof value.exact !== 'string' || !value.exact.trim() || value.exact.length > 4000
+    || !['prefix', 'suffix'].every(key => typeof value[key] === 'string' && value[key].length <= 64)
+    || !Number.isSafeInteger(value.start) || !Number.isSafeInteger(value.end) || value.start < 0 || value.end > 1000000 || value.end - value.start !== value.exact.length) throw new Error('Invalid text selection.');
+  return { exact: value.exact, prefix: value.prefix, suffix: value.suffix, start: value.start, end: value.end };
+}
 export function placementRef(value) {
   if (!value || !/^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(value.id || '') || typeof value.selector !== 'string' || value.selector.length > 1800
     || !/^[a-z][a-z\d-]*:nth-of-type\([1-9]\d{0,4}\)(?: > [a-z][a-z\d-]*:nth-of-type\([1-9]\d{0,4}\)){0,39}$/.test(value.selector)
     || !/^[a-z][a-z\d-]{0,40}$/.test(value.tag || '') || typeof value.quote !== 'string' || value.quote.length > 160
     || (value.mode !== undefined && value.mode !== 'point')
     || ![value.x, value.y].every(n => Number.isInteger(n) && n >= 0 && n <= 1000)) throw new Error('Invalid page placement.');
-  return { id: value.id.toLowerCase(), selector: value.selector, tag: value.tag, quote: value.quote, x: value.x, y: value.y, ...(value.mode === 'point' ? { mode: 'point' } : {}) };
+  return { id: value.id.toLowerCase(), selector: value.selector, tag: value.tag, quote: value.quote, x: value.x, y: value.y, ...(value.mode === 'point' ? { mode: 'point' } : {}), ...(value.selection ? { selection: textSelectionRef(value.selection) } : {}) };
 }
 export const placementUsers = (doc, placement) => placement ? doc?.placements?.[placement.id]?.users || {} : doc?.users || {};

@@ -4,7 +4,7 @@ const linked = id => `<article data-urn="urn:li:activity:${id}"><p>Illustrative 
 for (const platform of ['x','linkedin']) test(`${platform}: picker uses GitHub identity, scopes posts, and handles recycled feed nodes`, async ({page}) => {
   const host = platform === 'x' ? 'x.com' : 'www.linkedin.com';
   await page.route(`https://${host}/**`, route => route.fulfill({ contentType: 'text/html', body: `<html><meta charset="utf-8"><style>body{font:16px system-ui;background:white;color:#151515;margin:50px auto;max-width:600px}article{padding:24px;border-bottom:1px solid #ddd}button{padding:10px}</style><body><h1>Test feed · ${platform}</h1>${(platform === 'x' ? tweet : linked)('123456789')}</body></html>` }));
-  await page.addInitScript(() => { window.sent=[]; window.chrome={runtime:{sendMessage:async m=>{sent.push(m);return {ok:true,value:m.type==='status'?{connected:true,actor:{id:42,login:'octocat'}}:m.type==='react'?{actor:{id:42,login:'octocat'},document:{users:{42:{login:'octocat',emoji:m.event.emoji}}}}:{users:{}}};}}}; });
+  await page.addInitScript(() => { window.sent=[]; window.chrome={runtime:{sendMessage:async m=>{sent.push(m);return {ok:true,value:m.type==='status'?{connected:true,actor:{id:42,login:'octocat'}}:m.type==='react'?{actor:{id:42,login:'octocat'},document:{users:m.event.operation==='remove'?{}:{42:{login:'octocat',emoji:m.event.emoji}}}}:{users:{}}};}}}; });
   await page.goto(`https://${host}/feed`); await page.addScriptTag({path:'dist/content.js'});
   const trigger = page.getByRole('button',{name:'React with an emoji',exact:true});
   await expect(trigger).toHaveCount(1);
@@ -15,16 +15,16 @@ for (const platform of ['x','linkedin']) test(`${platform}: picker uses GitHub i
   await trigger.click();
   await expect(page.getByRole('dialog', { name: 'Choose a reaction' }).locator('.identity')).toHaveText('@octocat');
   await page.getByRole('button',{name:'Private',exact:true}).click(); await page.getByRole('searchbox').fill('🚀'); await page.getByRole('button',{name:'rocket',exact:true}).click();
-  await expect(trigger).toBeHidden();
-  await expect(page.locator('.chip')).toHaveText('🚀');
-  await expect(page.locator('.chip span')).toHaveCount(0);
+  await expect(trigger).toBeVisible();
+  await expect(page.locator('.chip')).toHaveText('🚀1');
+  await expect(page.locator('.chip span')).toHaveCount(1);
   const message = await page.evaluate(()=>sent.find(m=>m.type==='react'));
   expect(message.event.post).toEqual({platform,id:'123456789'}); expect(message.visibility).toBe('private'); expect(message.username).toBeUndefined();
   await page.locator('.chip').click();
   await expect(trigger).toBeVisible();
   await expect(page.locator('.chip')).toHaveCount(0);
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  expect((await page.evaluate(()=>sent.filter(m=>m.type==='react').at(-1))).event.emoji).toBeNull();
+  expect((await page.evaluate(()=>sent.filter(m=>m.type==='react').at(-1))).event.operation).toBe('remove');
   await page.evaluate(platform => { const a=document.querySelector('article');if(platform==='x')a.querySelector('a[href*="someone"]').href='/someone/status/987654321';else a.setAttribute('data-urn','urn:li:activity:987654321'); },platform);
   await expect(trigger).toHaveCount(1); await trigger.click(); await page.getByRole('searchbox').fill('🔥');
   await page.screenshot({path:`artifacts/${platform}-picker.png`,animations:'disabled'});
@@ -47,7 +47,7 @@ async function sduiFeed(page, body, unavailable = false) {
     window.chrome = {runtime:{sendMessage:async m => {
       sent.push(m);
       if (m.type === 'linkedin-resolve') return unavailable ? {ok:false,error:'Unavailable'} : {ok:true,value:{id:m.urn.endsWith('7517120023304282112') ? '7517120066396717056' : '7517120066396717999'}};
-      if (m.type === 'react') documents.set(m.event.post.id, {users:m.event.emoji ? {42:{login:'octocat',emoji:m.event.emoji}} : {}});
+      if (m.type === 'react') documents.set(m.event.post.id, {users:m.event.emoji && m.event.operation!=='remove' ? {42:{login:'octocat',emoji:m.event.emoji}} : {}});
       if (m.type === 'read' || m.type === 'private-read') return {ok:true,value:documents.get(m.post.id) || {users:{}}};
       return {ok:true,value:m.type==='status'?{connected:true,actor:{id:42,login:'octocat'}}:m.type==='react'?{actor:{id:42,login:'octocat'},document:documents.get(m.event.post.id)}:{users:{}}};
     }}};
@@ -106,7 +106,8 @@ test('LinkedIn SDUI keeps the reaction-menu overlay with the thumb and aligns th
     const before = await metrics(), box = await eyes.boundingBox();
     await eyes.click(); await page.getByRole('searchbox').fill('😀'); await page.getByRole('button',{name:'grinning face',exact:true}).click();
     const selected = page.locator('.chip[aria-pressed=true]');
-    await expect.poll(() => selected.boundingBox()).toEqual(box);
+    await expect(selected).toBeVisible();
+    await expect.poll(() => eyes.boundingBox()).toEqual(box);
     expect(await metrics()).toEqual(before);
     await page.locator('[role=listitem]').screenshot({path:`artifacts/linkedin-sdui-alignment-${width}.png`});
     await selected.click(); await expect(eyes).toBeVisible();
@@ -140,7 +141,7 @@ test('LinkedIn SDUI leaves unidentified posts untouched without retry loops', as
   expect(await page.evaluate(()=>sent.filter(m=>m.type==='linkedin-resolve').length)).toBe(1);
 });
 
-test('LinkedIn reactions stay beside the thumb, replace the eyes, and omit counters', async ({page}) => {
+test('LinkedIn reactions use a separate counted row and keep the eyes beside the thumb', async ({page}) => {
   await sduiFeed(page, sduiPost('7517120023304282112'));
   const host = page.locator('.like-action + reacji-to-reactions');
   const eyes = host.getByRole('button',{name:'React with an emoji',exact:true});
@@ -151,17 +152,18 @@ test('LinkedIn reactions stay beside the thumb, replace the eyes, and omit count
   await eyes.click();
   await page.getByRole('searchbox').fill('😁');
   await page.getByRole('button',{name:'beaming face with smiling eyes',exact:true}).click();
-  const chip = host.locator('.chip');
-  await expect(chip).toHaveText('😁');
-  expect(await chip.boundingBox()).toEqual(eyesBox);
-  await expect(chip.locator('span')).toHaveCount(0);
-  await expect(eyes).toBeHidden();
+  const chip = page.locator('[data-reaction-row] .chip');
+  await expect(chip).toHaveText('😁1');
+  expect(await eyes.boundingBox()).toEqual(eyesBox);
+  expect((await chip.boundingBox()).y).toBeGreaterThan(eyesBox.y);
+  await expect(chip.locator('span')).toHaveCount(1);
+  await expect(eyes).toBeVisible();
   await page.screenshot({path:'artifacts/linkedin-inline-reaction.png'});
   await chip.click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(chip).toHaveCount(0);
   await expect(eyes).toBeVisible();
-  expect((await page.evaluate(()=>sent.filter(m=>m.type==='react').at(-1))).event.emoji).toBeNull();
+  expect((await page.evaluate(()=>sent.filter(m=>m.type==='react').at(-1))).event.operation).toBe('remove');
 });
 
 test('X spaces every icon equally after the heart, including grouped trailing actions, without selection jitter', async ({page}) => {
@@ -173,9 +175,9 @@ test('X spaces every icon equally after the heart, including grouped trailing ac
     button{display:flex;align-items:center;gap:5px;border:0;background:none;color:inherit;padding:6px 0;font:inherit}svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:2}
     </style><article data-testid="tweet"><a href="/someone/status/123456789"><time>Today</time></a><p>An X action row with different counter widths.</p><div role="group">
     ${action('reply','2')}${action('retweet')}${action('like','22')}<div class="slot"><a href="/someone/status/123456789/analytics">${svg}<span>747</span></a></div><div class="trailing">${action('bookmark')}${action('share')}</div></div></article>`}));
-  await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:async m=>({ok:true,value:m.type==='status'?{connected:true,actor:{id:42,login:'octocat'}}:m.type==='react'?{actor:{id:42,login:'octocat'},document:{users:m.event.emoji?{42:{login:'octocat',emoji:m.event.emoji}}:{}}}:{users:{}}})}};});
+  await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:async m=>({ok:true,value:m.type==='status'?{connected:true,actor:{id:42,login:'octocat'}}:m.type==='react'?{actor:{id:42,login:'octocat'},document:{users:m.event.emoji && m.event.operation!=='remove'?{42:{login:'octocat',emoji:m.event.emoji}}:{}}}:{users:{}}})}};});
   await page.goto('https://x.com/feed');await page.addScriptTag({path:'dist/content.js'});
-  const row=page.locator('[role=group]'),eyes=row.getByRole('button',{name:'React with an emoji',exact:true});
+  const row=page.locator('article > [role=group]'),eyes=row.getByRole('button',{name:'React with an emoji',exact:true});
   await expect(eyes).toBeVisible();
   const centers=()=>row.evaluate(row=>{
     const icons=[...row.querySelectorAll('svg')];
@@ -187,9 +189,9 @@ test('X spaces every icon equally after the heart, including grouped trailing ac
     await expect.poll(async()=>{const x=await centers(),gaps=x.slice(1).map((v,i)=>v-x[i]);return Math.max(...gaps)-Math.min(...gaps);}).toBeLessThan(1);
     const before=await centers(),eyesBox=await eyes.boundingBox();
     await eyes.click();await page.getByRole('searchbox').fill('💙');await page.getByRole('button',{name:'blue heart',exact:true}).click();
-    const chip=row.locator('.chip');await expect(chip).toBeVisible();
+    const chip=page.locator('[data-reaction-row] .chip');await expect(chip).toBeVisible();
     const chipBox=await chip.boundingBox();
-    expect(chipBox.width).toBe(eyesBox.width);expect(chipBox.height).toBe(eyesBox.height);
+    expect(chipBox.y).toBeGreaterThan(eyesBox.y);expect(await eyes.boundingBox()).toEqual(eyesBox);
     expect(await centers()).toEqual(before);
     await chip.click();await expect(eyes).toBeVisible();expect(await centers()).toEqual(before);
   }

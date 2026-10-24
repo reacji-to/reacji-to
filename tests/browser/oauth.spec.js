@@ -51,6 +51,7 @@ test('real extension completes device OAuth, resumes after reload, and submits w
       if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' } });
       expect(route.request().headers().authorization).toBe('Bearer ghu_test-oauth');
       const body = route.request().postDataJSON(), path = new URL(route.request().url()).pathname;
+      if (path === '/v1/slack/status') return route.fulfill({ json: { connected: false, settings: { channel: '', rules: [] } } });
       if (path === '/v1/private/validate') return route.fulfill({ json: { actor: { id: 42, login: 'octocat' }, repository: { name: body.repository } } });
       if (path === '/v1/private/read') return route.fulfill({ json: { version: 1, commit: body.commit, users: {} } });
       submissions.push(body);
@@ -95,11 +96,15 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     await page.setViewportSize({width:1280,height:900});
     await page.getByLabel('Public reactions',{exact:true}).selectOption('everyone');
 
+    await page.evaluate(async () => {
+      await chrome.runtime.sendMessage({ type: 'raycast-save', actions: [{ emoji: '🚀', name: 'Search', description: 'Opens search', enabled: true, deeplink: 'raycast://extensions/raycast/raycast/search' }] });
+    });
     await page.goto('https://dev-null.sh/');
     await page.getByRole('button', { name: 'React with an emoji', exact: true }).first().click();
     await page.getByRole('searchbox').fill('🚀'); await page.getByRole('button', { name: 'rocket', exact: true }).click();
     await expect(page.getByRole('button', { name: /🚀, 1 reaction, yours/ }).first()).toBeVisible();
     await expect.poll(()=>submissions.length).toBe(1);
+    await expect.poll(() => worker.evaluate(() => globalThis.openedUrls.filter(url => url.startsWith('raycast:')).length)).toBe(1);
     await expect.poll(() => worker.evaluate(async () => (await chrome.storage.local.get('emojiUsage')).emojiUsage?.[0]?.emoji)).toBe('🚀');
     await page.reload();
     // The first post's eyes become its saved rocket when cached data arrives.
@@ -123,6 +128,7 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     await page.getByRole('button', { name: 'Retry', exact: true }).click();
     await expect(page.getByText('Sign in to dev-null before reacting.', { exact: false })).toBeVisible();
     await expect.poll(()=>submissions.length).toBe(1);
+    expect(await worker.evaluate(() => globalThis.openedUrls.filter(url => url.startsWith('raycast:')).length)).toBe(1);
     siteUsername = 'octocat';
     await page.goto(url);
     await page.getByRole('button', { name: 'Refresh repositories', exact: true }).click();
@@ -149,6 +155,10 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     await context.route('https://x.com/**', route => route.fulfill({ contentType: 'text/html', body: '<meta charset="utf-8"><article data-testid="tweet"><a href="/person/status/123456789"><time>Today</time></a><div role="group"><button data-testid="reply">Reply</button><button data-testid="like">Like</button></div></article>' }));
     siteUsername = null; // X reactions must not require a dev-null session.
     mirrorFails = true;
+    await worker.evaluate(() => {
+      const create = chrome.tabs.create.bind(chrome.tabs);
+      chrome.tabs.create = options => { if (options.url.startsWith('raycast:')) throw new Error('No Raycast handler'); return create(options); };
+    });
     await page.goto('https://x.com/home');
     await page.getByRole('button', { name: 'React with an emoji', exact: true }).click();
     await page.getByRole('button', { name: 'Public', exact: true }).click();
@@ -159,7 +169,8 @@ test('real extension completes device OAuth, resumes after reload, and submits w
     expect(submissions[2].username).toBeUndefined();
     expect(submissions[2].repository).toBe('octocat/reacji-to-private');
     expect(submissions[2].mirrorPublic).toBe(true);
-    await expect(page.getByText('Public reaction saved, but its private-repo copy failed. Check settings.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Reaction saved, but Raycast could not be opened. Check the action in extension settings.', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Retry', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /🚀, 1 reaction, yours/ })).toBeVisible();
     await page.goto(url);
     await expect(page.locator('#mirror-status')).toContainText('private-repo copy failed');

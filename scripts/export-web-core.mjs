@@ -8,7 +8,7 @@ const destination = resolve(process.argv[2]);
 await mkdir(join(destination,'shared'),{recursive:true});
 await mkdir(join(destination,'public'),{recursive:true});
 const hashes = {};
-for (const name of ['posts.js','protocol.js','web.js','emoji.json','config.js','brand.js']) {
+for (const name of ['posts.js','protocol.js','web.js','emoji.json','config.js','brand.js','slack.js','reaction-payload.js','attachments.js']) {
   const from = `src/${name}`;
   await copyFile(from,join(destination,'shared',name));
   hashes[name] = createHash('sha256').update(await readFile(from)).digest('hex');

@@ -1,5 +1,6 @@
 // Shared by X, LinkedIn, dev-null and the website examples. Flatten action
 // wrappers without moving native controls or changing their handlers.
+import { syncNativeEyes } from './native-eyes.js';
 const css = `
 [data-reacji-actions-row]{display:grid!important;grid-template-columns:none!important;grid-auto-flow:column!important;grid-auto-columns:minmax(0,1fr)!important;align-items:center!important;gap:0!important}
 [data-reacji-actions-wrapper]{display:contents!important}
@@ -30,6 +31,7 @@ export function layoutActions(anchor, host, article) {
     .filter(el => !linkedInReaction || !anchor.contains(el) || el === linkedInReaction)
     .map(el => el === linkedInReaction ? anchor : el);
   if (!controls.some(control => anchor.contains(control)) && anchor.getClientRects().length) controls.push(anchor);
+  syncNativeEyes(host, controls, anchor);
   for (const control of controls) {
     control.setAttribute('data-reacji-actions-action', '');
     for (let wrapper = control.parentElement; wrapper && wrapper !== row; wrapper = wrapper.parentElement) {
@@ -40,8 +42,8 @@ export function layoutActions(anchor, host, article) {
   const compact = !linkedInReaction && row.getBoundingClientRect().width / (controls.length + 1) < 80;
   row.toggleAttribute('data-reacji-actions-compact', compact);
   host.toggleAttribute('data-compact', compact);
-  // Center the icon itself, not the icon-plus-count box. Otherwise unequal
-  // counts make an evenly divided row still look uneven.
+  // Center every glyph, including labeled actions. Text of differing lengths
+  // must not change the spacing between the icons themselves.
   for (const control of [...controls, host]) {
     const icon = control === host ? host.shadowRoot.querySelector('.reaction-slot') : control.querySelector('svg');
     const box = control.getBoundingClientRect(), glyph = icon?.getBoundingClientRect();

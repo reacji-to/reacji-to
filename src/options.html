@@ -3,7 +3,7 @@
 <body><main>
 <a class="brand" href="https://reacji.to/" target="_blank" rel="noopener"><img src="logo.png" width="36" height="36" alt="">reacji.to</a>
 <h1>Your reactions. Your choice.</h1>
-<p class="intro">Hold down Option (Alt on Windows/Linux) for the blue eyes, then click page content to react. Keep it private or share it on your reacji.to profile.</p>
+<p class="intro">Hold down Option (Alt on Windows/Linux) for the blue eyes, then click page content to react. Send it to Slack, keep it private, or share it on your reacji.to profile.</p>
 <section aria-labelledby="updates-title" class="updates-section">
 <h2 id="updates-title">Extension updates</h2>
 <p id="update-version" class="help"></p>
@@ -18,11 +18,75 @@
 <button type="button" class="secondary" id="following-refresh">Refresh following list</button>
 <p id="audience-status" role="status" aria-live="polite"></p>
 </section>
+<section aria-labelledby="backend-title"><h2 id="backend-title">Your backend</h2>
+<details><summary>Use your own Cloudflare Worker</summary>
+<p class="help">The shared reacji.to Worker supports everyone’s isolated Slack connections. A personal instance is optional. Deploy your Worker with its own Slack app, then enter its HTTPS origin here.</p>
+<label for="service-url">Worker origin</label>
+<input type="url" id="service-url" placeholder="https://your-worker.workers.dev" autocomplete="off" spellcheck="false">
+<p class="help">Your GitHub access token is sent to the selected Worker to verify your identity. Only use a Worker you trust. Integration connections, delivery records, and private screenshots stay on that instance. Switching backends does not move or delete them.</p>
+<button type="button" id="service-save">Use this Worker</button>
+<p id="service-status" role="status" aria-live="polite" class="help"></p>
+</details>
+</section>
+<section aria-labelledby="screenshot-title">
+<h2 id="screenshot-title">Private screenshots</h2>
+<p>Select <strong>Include screenshot</strong> in the picker to capture the visible tab, including any visible form fields. Screenshots are saved privately in your selected Worker backend and require your GitHub identity to retrieve. They are never committed to the public repository or uploaded to Slack.</p>
+<p class="help">Screenshots stay saved until you delete them. The limit is 100 files or 50 MB per account. Hold Option (Alt on Windows/Linux) and drag over text to attach a highlighted passage without a screenshot.</p>
+<div class="actions"><button type="button" id="screenshot-permission" class="secondary">Enable screenshot access</button><button type="button" id="screenshots-refresh" class="secondary">Load saved screenshots</button></div>
+<ul id="screenshots" aria-label="Private screenshots"></ul>
+<p id="screenshot-status" class="help" role="status" aria-live="polite"></p>
+</section>
+<section aria-labelledby="raycast-title" id="raycast-section">
+<h2 id="raycast-title">Raycast actions</h2>
+<p>Run a Raycast command when you react with its emoji. Choose Raycast in the picker to run locally, or run a mapped command after a Public or Private reaction saves. Removing or moving a reaction does not run a command.</p>
+<p class="help" id="raycast-help">In Raycast, select a command, open its action panel, and choose <strong>Copy Deeplink</strong>. Paste it below. Raycast must be installed; your browser or Raycast may ask before opening the command.</p>
+<p id="raycast-empty" class="help">No actions yet. Add an emoji and command below.</p>
+<ul id="raycast-actions" aria-label="Saved Raycast actions"></ul>
+<form id="raycast-form" aria-describedby="raycast-help">
+<label for="raycast-emoji">Reaction emoji</label>
+<input id="raycast-emoji" type="text" placeholder="🚀" required maxlength="100" autocomplete="off">
+<label for="raycast-name">Action name</label>
+<input id="raycast-name" type="text" placeholder="e.g. Start focus session" required maxlength="80" autocomplete="off">
+<label for="raycast-description">What it does (optional)</label>
+<input id="raycast-description" type="text" placeholder="e.g. Starts a 25-minute focus timer" maxlength="180" autocomplete="off">
+<label for="raycast-deeplink">Raycast deeplink</label>
+<input id="raycast-deeplink" type="text" placeholder="raycast://extensions/…" required maxlength="8192" autocomplete="off" spellcheck="false">
+<div class="actions"><button type="submit" id="raycast-save">Add action</button><button type="button" id="raycast-cancel" class="secondary" hidden>Cancel edit</button></div>
+</form>
+<p class="help">Actions are saved only in this browser and are never published with your reactions. Deeplink arguments are passed exactly as saved.</p>
+<p id="raycast-status" role="status" aria-live="polite"></p>
+</section>
+<section aria-labelledby="slack-title" id="slack-section">
+<h2 id="slack-title">Slack workspace and destinations</h2>
+<p>Import your workspace’s custom emojis and post an emoji, link and context to one channel as reacji.to. Only emoji:read and incoming-webhook are requested.</p>
+<div class="actions"><button type="button" id="slack-connect">Connect Slack</button><button type="button" id="slack-refresh" class="secondary">Refresh Slack</button><button type="button" id="slack-disconnect" class="secondary" hidden>Disconnect Slack</button></div>
+<p id="slack-status" role="status" aria-live="polite"></p>
+<div id="slack-setup" hidden>
+<p id="slack-workspace"></p>
+<label for="slack-default">Start new reactions in</label>
+<select id="slack-default"><option value="github">GitHub · Public / Private</option><option value="slack">Slack</option></select>
+<label for="slack-channel">Authorized Slack channel</label>
+<select id="slack-channel"><option value="">Choose a channel</option></select>
+<p class="help">Slack selects this channel during authorization. The app cannot post to other channels or read channel history. Clearing a browser marker leaves its posted message in Slack.</p>
+<h3>Emoji rules</h3>
+<p class="help">A rule sends this emoji to the authorized channel instead of saving to GitHub or running a Raycast action. The emoji appears in the message; the app does not add Slack reactions.</p>
+<p id="slack-rules-empty" class="help">No emoji rules yet.</p>
+<ul id="slack-rules" aria-label="Slack emoji rules"></ul>
+<label for="slack-rule-emoji">When I use this emoji</label>
+<input id="slack-rule-emoji" type="text" list="slack-emoji-names" placeholder="Paste an emoji or enter :custom_name:" autocomplete="off" maxlength="150">
+<datalist id="slack-emoji-names"></datalist>
+<label for="slack-rule-channel">Send to this channel</label>
+<select id="slack-rule-channel"><option value="">Choose a channel</option></select>
+<div class="actions"><button type="button" id="slack-rule-add" class="secondary">Add rule</button><button type="button" id="slack-save">Save Slack settings</button></div>
+</div>
+<p class="help">Connect GitHub below to identify your reacji.to account. Slack-only reactions never create GitHub commits. Page titles, links, and a short visible excerpt go to Slack; form values are excluded. Slack and your chosen Worker operator can access this content.</p>
+
+</section>
 <section aria-labelledby="connection-title">
 <h2 id="connection-title">Connect to GitHub</h2>
 <p>Connect once to react in one click. GitHub will show you a short code to approve—no personal access token to create or paste.</p>
 <label class="checkbox"><input id="remember" type="checkbox" checked> Keep connected after restarting the browser</label>
-<p class="help">Your token is stored inside this extension and sent only to GitHub and reacji.to to verify your account. GitHub authorization expires and renews automatically; the sites you react on never receive your token.</p>
+<p class="help">Your token is stored inside this extension and sent only to GitHub and your selected Worker to verify your account. GitHub authorization expires and renews automatically; the sites you react on never receive your token.</p>
 <div class="actions"><button type="button" id="oauth-connect">Connect GitHub</button><button type="button" id="disconnect" class="secondary" hidden>Disconnect</button></div>
 <div id="device" hidden>
 <p>Enter this code on GitHub, then approve <strong>reacji.to</strong>.</p>
@@ -46,11 +110,11 @@
 </section>
 </section>
 <section aria-labelledby="how-title"><h2 id="how-title">What happens when you react</h2>
-<ol><li>Hold down <strong>Option</strong> (<strong>Alt</strong> on Windows/Linux) and click page content, or use the eyes beside a post.</li><li>Choose <strong>Public</strong> or <strong>Private</strong> in the emoji picker.</li><li>Your reaction is tied to your GitHub identity. On dev-null, your signed-in account must match.</li><li>The Worker commits your emoji to the public data repo or your selected private repo. Web placements also save the page URL, element path, position, and a short visible text excerpt.</li><li>Public reactions appear on reacji.to/YOUR_GITHUB_HANDLE and on the page for other extension users.</li></ol>
+<ol><li>Hold down <strong>Option</strong> (<strong>Alt</strong> on Windows/Linux) and click page content, or use the eyes beside a post.</li><li>Choose <strong>Public</strong>, <strong>Private</strong>, <strong>Slack</strong>, or <strong>Raycast</strong> in the emoji picker.</li><li>Your reaction is tied to your GitHub identity. On dev-null, your signed-in account must match.</li><li>The Worker commits your emoji to the public data repo or your selected private repo. Web placements also save the page URL, element path, position, and a short visible text excerpt.</li><li>Public reactions appear on reacji.to/YOUR_GITHUB_HANDLE and on the page for other extension users.</li></ol>
 <p>Reactions reattach when their saved target can be matched. If a page changes too much, the pin stays hidden. Browser settings pages and other extension-restricted pages cannot have reactions.</p>
 </section>
 <section aria-labelledby="storage-title"><h2 id="storage-title">Where your reacji live</h2>
-<p>Reacji are saved as commits in GitHub. Public reacji and their history are visible to everyone in <a id="repository" href="https://github.com/reacji-to/reacji-to-data" target="_blank" rel="noopener">our public repository ↗</a>.</p>
+<p>Public and Private GitHub reactions are saved as commits. Public reacji and their history are visible to everyone in <a id="repository" href="https://github.com/reacji-to/reacji-to-data" target="_blank" rel="noopener">our public repository ↗</a>.</p>
 <p>Private reacji live in your chosen private repo, accessible only to you and any collaborators you may have invited.</p>
 <p class="help">GitHub hosts your data, and the app has permission to read and write your reactions. We check that your repository is private before saving.</p>
 <p>Reacji on webpages also save the page URL, placement details, and a short text excerpt so they can appear in the same spot later.</p>

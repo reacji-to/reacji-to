@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 const svg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>';
 const commit = '01a14f9d-76a7-72d9-a92d-48ae9ea999cb';
-for (const platform of ['x', 'linkedin', 'devnull']) test(`${platform}: equal icon spacing and stable eyes/emoji slot with existing reactions`, async ({ page }) => {
+for (const platform of ['x', 'linkedin', 'devnull']) test(`${platform}: equal icon spacing and a single reaction slot with existing reactions`, async ({ page }) => {
   const domain = { x: 'x.com', linkedin: 'www.linkedin.com', devnull: 'dev-null.sh' }[platform];
   const article = { x: 'data-testid="tweet"', linkedin: 'data-urn="urn:li:activity:123456789"', devnull: `data-commit="${commit}"` }[platform];
   const anchor = { x: 'data-testid="like"', linkedin: 'class="react-button__trigger"', devnull: 'data-test="star-commit-button"' }[platform];
@@ -20,7 +20,7 @@ for (const platform of ['x', 'linkedin', 'devnull']) test(`${platform}: equal ic
     const users = { 99: { login: 'friend', emoji: '🔥' } };
     window.chrome = { runtime: { sendMessage: async m => {
       if (m.type === 'react') {
-        if (m.event.emoji) users[42] = { login: 'octocat', emoji: m.event.emoji }; else delete users[42];
+        if (m.event.emoji && m.event.operation !== 'remove') users[42] = { login: 'octocat', emoji: m.event.emoji }; else delete users[42];
       }
       return { ok: true, value: m.type === 'status' ? { connected: true, actor: { id: 42, login: 'octocat' } }
         : m.type === 'react' ? { actor: { id: 42, login: 'octocat' }, document: { users: { ...users } } } : { users: { ...users } } };
@@ -51,6 +51,8 @@ for (const platform of ['x', 'linkedin', 'devnull']) test(`${platform}: equal ic
       await expect(selected).toBeVisible();
       await expect(eyes).toBeHidden();
       await expect.poll(() => selected.boundingBox()).toEqual(box);
+      await expect(page.locator('[data-reaction-row]')).toHaveCount(0);
+      await expect(page.locator('article')).not.toContainText('undefined');
       expect(await metrics()).toEqual(before);
       await selected.click();
       await expect(eyes).toBeVisible();

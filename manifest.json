@@ -2,11 +2,12 @@
   "manifest_version": 3,
   "name": "reacji.to",
   "version": "0.4.3",
-  "description": "React anywhere with any emoji. Public or private, saved in Git and tied to your GitHub identity.",
+  "description": "React anywhere with any emoji. Save to GitHub or post emoji and context to one Slack channel.",
   "minimum_chrome_version": "120",
   "permissions": [
     "storage",
-    "contextMenus"
+    "contextMenus",
+    "identity"
   ],
   "host_permissions": [
     "http://*/*",
@@ -30,7 +31,7 @@
     }
   ],
   "action": {
-    "default_title": "reacji.to · settings",
+    "default_title": "reacji.to \u00b7 settings",
     "default_icon": {
       "16": "icon-16.png",
       "32": "icon-32.png",
@@ -47,5 +48,8 @@
     "32": "icon-32.png",
     "48": "icon-48.png",
     "128": "icon-128.png"
-  }
+  },
+  "optional_host_permissions": [
+    "<all_urls>"
+  ]
 }

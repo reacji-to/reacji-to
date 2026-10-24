@@ -14,7 +14,7 @@ test('saved pins show only emoji; changes and removals are optimistic and roll b
       else doc.placements[m.event.placement.id]={anchor:m.event.placement,users:{42:{login:'octocat',emoji:m.event.emoji}}};
       resolve({ok:true,value:{actor:{id:42,login:'octocat'},document:doc}});
     };});
-    return {ok:true,value:doc};
+    return {ok:true,value:m.type==='read'?doc:{}};
   });
   await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:m=>window.testSend(m),onMessage:{addListener:fn=>window.fromBackground=fn}}};});
   await page.goto('https://example.test/');await page.addScriptTag({path:'dist/content.js'});
@@ -72,7 +72,7 @@ test('Option-click placement persists, follows DOM movement, hides on mismatch, 
     const post=m.post||m.event?.post;const scope=m.type==='private-read'?'private':m.visibility||'public';
     let doc=docs[scope].get(post?.id)||{version:1,commit:post?.id,post,users:{},placements:{}};
     if(m.type==='react'){writes.push(m);doc=structuredClone(doc);if(m.event.emoji===null)delete doc.placements[m.event.placement.id];else doc.placements[m.event.placement.id]={anchor:m.event.placement,users:{42:{login:'octocat',emoji:m.event.emoji}}};docs[scope].set(post.id,doc);return {ok:true,value:{document:doc,actor:{id:42,login:'octocat'}}};}
-    return {ok:true,value:doc};
+    return {ok:true,value:m.type==='read'?doc:{}};
   });
   await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:m=>window.testSend(m),onMessage:{addListener:fn=>window.fromBackground=fn}}};});
   const load=async()=>{await page.goto('https://example.test/article?utm_source=test');await page.addScriptTag({path:'dist/content.js'});};
@@ -141,7 +141,7 @@ test('rapid choices stay interactive and older saves cannot undo the newest inte
       else doc.placements[m.event.placement.id]={anchor:m.event.placement,users:{42:{login:'octocat',emoji:m.event.emoji}}};
       resolve({ok:true,value:{actor:{id:42,login:'octocat'},document:doc}});
     };}); }
-    return {ok:true,value:doc};
+    return {ok:true,value:m.type==='read'?doc:{}};
   });
   await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:m=>window.testSend(m),onMessage:{addListener:fn=>window.fromBackground=fn}}};});
   await page.goto('https://example.test/');await page.addScriptTag({path:'dist/content.js'});
@@ -181,7 +181,7 @@ test('drag moves only my reaction, saves atomically, survives reload and does no
       doc.placements[e.placement.id]={anchor:e.placement,users:{42:{login:'octocat',emoji:e.emoji}}};
       resolve({ok:true,value:{actor:{id:42,login:'octocat'},document:doc}});
     };});}
-    return {ok:true,value:doc};
+    return {ok:true,value:m.type==='read'?doc:{}};
   });
   await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:m=>window.testSend(m),onMessage:{addListener:fn=>window.fromBackground=fn}}};});
   const load=async()=>{await page.goto('https://example.test/');await page.addScriptTag({path:'dist/content.js'});};
@@ -232,7 +232,7 @@ for (const [layout, styles] of [
       doc={users:{},placements:{[anchor.id]:{anchor,users:{42:{login:'octocat',emoji:m.event.emoji}}}}};
       return {ok:true,value:{actor:{id:42,login:'octocat'},document:doc}};
     }
-    return {ok:true,value:doc};
+    return {ok:true,value:m.type==='read'?doc:{}};
   });
   await page.addInitScript(()=>{window.chrome={runtime:{sendMessage:m=>window.testSend(m),onMessage:{addListener(){}}}};});
   const load=async()=>{await page.goto('https://example.test/');await page.addScriptTag({path:'dist/content.js'});await page.evaluate(()=>scrollTo(0,300));};

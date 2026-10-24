@@ -30,6 +30,24 @@ test.beforeEach(async ({ page }) => {
 
 const cursor = page => page.locator('#target').evaluate(el => getComputedStyle(el).cursor);
 
+test.describe('Retina cursor', () => {
+  test.use({ deviceScaleFactor: 2 });
+  test('Option eyes retain their size with a high-resolution image', async ({ page }) => {
+    await page.keyboard.down('Alt');
+    const value = await cursor(page);
+    expect(value).toContain('image-set(');
+    expect(value).toMatch(/4dppx\) 16 16, crosshair$/);
+    const images = [...value.matchAll(/url\("([^"]+)"\) (\d+)dppx/g)].map(([, src, density]) => ({ src, density: Number(density) }));
+    const sizes = await page.evaluate(async images => Promise.all(images.map(async ({ src, density }) => {
+      const image = new Image(); image.src = src; await image.decode();
+      return { pixels: image.naturalWidth, size: image.naturalWidth / density };
+    })), images);
+    expect(sizes).toEqual([{ pixels: 32, size: 32 }, { pixels: 128, size: 32 }]);
+    await page.keyboard.up('Alt');
+    await expect.poll(() => cursor(page)).toBe('pointer');
+  });
+});
+
 test('Option/Alt shows eyes, intercepts the page click and opens the existing picker', async ({ page }) => {
   await page.keyboard.down('Alt');
   await expect.poll(() => cursor(page)).toContain('data:image/png;base64,');
