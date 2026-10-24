@@ -4,7 +4,7 @@ reacji.to puts one personal emoji reaction on any post or passage. Reactions are
 
 Paste this to your agent:
 
-> Use https://github.com/reacji-to/reacji-to/blob/main/SETUP.md to install or update reacji.to, set up my emoji labels, and configure any private backup or emoji actions I ask for. Reuse my current setup, make the changes for me where possible, and verify them in my browser.
+> Set up or change reacji.to for me using https://reacji.to/install
 
 ## Agent instructions
 

@@ -322,7 +322,7 @@ async function handle(message, sender) {
     return { ...state, slack, audience: view.audience, followingError: view.followingError, followingCount: view.following ? view.following.ids.length + view.following.logins.length : null, repository: REPOSITORY, privateRepository: privateRepositories[state.actor?.id] || null,
       mirrorPublic: mirrorPublicPreferences[state.actor?.id] !== false, mirrorError: mirrorErrors[state.actor?.id] || null };
   }
-  if (message.type === 'options') { await chrome.tabs.create({ url: 'https://reacji.to/about' }); return {}; }
+  if (message.type === 'options') { await chrome.tabs.create({ url: 'https://reacji.to/install' }); return {}; }
   if (message.type === 'audience-save' && trusted) {
     if (!['everyone', 'following'].includes(message.audience)) throw new Error('Choose Everyone or Following on dev-null.');
     await chrome.storage.local.set({ audience: message.audience });
